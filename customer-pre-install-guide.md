@@ -11,47 +11,54 @@
 
 ## ส่วนที่ 1 — เครื่อง Server (Windows Server)
 
-เครื่องนี้จะใช้ติดตั้งระบบ Vending Machine ทั้งชุด (Database, API, Web)
+เครื่องนี้จะใช้รันระบบ Vending Machine (API, Web) ผ่าน Docker และมี SQL Server เป็นฐานข้อมูล
+
+> **สำคัญ — server ต่างจากเครื่อง dev:** เครื่อง server ใช้ **Docker Engine + Windows Containers (Process Isolation)** — **ไม่ใช่ Docker Desktop และไม่ใช้ WSL2** (เครื่อง Programmer ในส่วนที่ 2 ถึงจะใช้ Docker Desktop)
+>
+> ทีมงานมีสคริปต์ `setup-server.ps1` ที่ติดตั้ง **Docker Engine + Containers feature + NSSM + IIS + Git** ให้อัตโนมัติในวันอบรม รายการด้านล่างคือสิ่งที่ลูกค้าเตรียม/ตรวจไว้ก่อนได้ (ลง SQL Server เองเพราะขึ้นกับ license)
 
 ### 1.1 รายการ
 
 | # | โปรแกรม | ใช้ทำอะไร |
 |---|---------|-----------|
-| 1 | WSL2 | ตัวกลางสำหรับรัน Docker |
-| 2 | Docker Desktop | รันระบบทั้งหมด (Database / API / Web) |
-| 3 | Git | ดึงไฟล์ตั้งค่าระบบ |
-| 4 | NSSM | ตั้งบริการ Windows ให้ระบบทำงานอัตโนมัติ |
-| 5 | IIS + URL Rewrite + ARR | ตัวกระจายเว็บ (reverse proxy) |
+| 1 | Windows Server 2025 + เปิด feature **Containers** | host ของระบบ |
+| 2 | **Docker Engine** (Windows Containers — ไม่ใช่ Docker Desktop) | รัน API / Web |
+| 3 | **SQL Server 2022** | ฐานข้อมูล — ติดตั้งตรงบนเครื่อง (ไม่ได้รันใน Docker) |
+| 4 | Git | ดึงไฟล์ตั้งค่าระบบ (gitops) |
+| 5 | NSSM | ตั้งบริการ Windows ให้ระบบทำงานอัตโนมัติ |
+| 6 | IIS + URL Rewrite + ARR | ตัวกระจายเว็บ (reverse proxy) |
 
 ### 1.2 วิธีติดตั้ง
 
-**1) WSL2** — เปิด PowerShell แบบ *Run as Administrator* แล้วรัน:
+> ข้อ 1, 2, 4, 5, 6 — ถ้าให้ทีมงานรัน `setup-server.ps1` วันอบรม จะติดตั้งให้ครบอัตโนมัติ ลูกค้าเตรียมแค่ Windows Server + สิทธิ์ Administrator + อินเทอร์เน็ต (หรือแจ้งทีมงานถ้า offline)
+
+**1) เปิด Windows Containers feature** — เปิด PowerShell แบบ *Run as Administrator* แล้วรัน:
 
 ```powershell
-wsl --install --no-distribution
+Enable-WindowsOptionalFeature -Online -FeatureName Containers -All
 ```
 
 รีสตาร์ตเครื่อง 1 ครั้งหลังติดตั้งเสร็จ
 
-**2) Docker Desktop**
+**2) Docker Engine (Windows Containers)** — ติดตั้งแบบ static binary + register เป็น Windows service (**ไม่ใช่ Docker Desktop, ไม่ใช้ WSL2**)
 
-1. ดาวน์โหลด: <https://www.docker.com/products/docker-desktop/>
-2. ติดตั้งโดยเลือก **Use WSL 2 instead of Hyper-V** (ค่าเริ่มต้น)
-3. เปิด Docker Desktop ครั้งแรก รอจนสถานะมุมล่างซ้ายเป็นสีเขียว (Engine running)
-4. ทดสอบ: เปิด PowerShell รัน `docker version` ต้องแสดงทั้ง Client และ Server
+- ทีมงานติดตั้งให้ผ่าน `setup-server.ps1` (Docker Engine 28.x)
+- ทดสอบหลังติดตั้ง: `docker version` → ฝั่ง **Server ต้องเป็น `windows/amd64`** และ `docker info` แสดง `Isolation: process`
 
-**3) Git**
+**3) SQL Server 2022** — ติดตั้งตรงบนเครื่อง (ใช้ license ของลูกค้า) ไม่ได้รันใน Docker
+
+**4) Git**
 
 ดาวน์โหลด: <https://git-scm.com/download/win> → ติดตั้งแบบ Next ทั้งหมด (ค่าเริ่มต้น)
 ทดสอบ: `git --version`
 
-**4) NSSM**
+**5) NSSM**
 
 1. ดาวน์โหลด: <https://nssm.cc/download> (เลือกรุ่นล่าสุด เช่น 2.24)
 2. แตก zip แล้วคัดลอก `win64\nssm.exe` ไปไว้ที่ `C:\tools\nssm\nssm.exe` (สร้างโฟลเดอร์เอง)
 3. ทดสอบ: `C:\tools\nssm\nssm.exe version`
 
-**5) IIS + URL Rewrite + ARR** — เปิด PowerShell (Administrator):
+**6) IIS + URL Rewrite + ARR** — เปิด PowerShell (Administrator):
 
 ```powershell
 Install-WindowsFeature -Name Web-Server -IncludeManagementTools
@@ -61,7 +68,7 @@ Install-WindowsFeature -Name Web-Server -IncludeManagementTools
 - URL Rewrite: <https://www.iis.net/downloads/microsoft/url-rewrite>
 - Application Request Routing (ARR): <https://www.iis.net/downloads/microsoft/application-request-routing>
 
-> ถ้าเครื่อง Server **ไม่มีอินเทอร์เน็ต** แจ้งทีมงานล่วงหน้า — ทีมงานจะเตรียม Docker images และตัวติดตั้งทั้งหมดใส่ USB ไปในวันอบรมแทน
+> ถ้าเครื่อง Server **ไม่มีอินเทอร์เน็ต** แจ้งทีมงานล่วงหน้า — ทีมงานจะเตรียม Docker images (Windows containers) และตัวติดตั้งทั้งหมดใส่ USB ไปในวันอบรมแทน
 
 ---
 
@@ -137,12 +144,28 @@ adb version
 
 ---
 
-## ส่วนที่ 3 — ตู้ Vending (เครื่อง Android ใหม่)
+## ส่วนที่ 3 — ตู้ Vending (เครื่อง Android)
 
-1. เสียบสาย USB เชื่อมกับคอมพิวเตอร์ได้ (เตรียมสาย USB ที่ใช้ส่งข้อมูลได้ ไม่ใช่สายชาร์จอย่างเดียว)
+ตู้แบ่งเป็น 2 แบบ:
+
+### 3.1 ตู้สำหรับอบรม / ทดสอบ — *Optional (ไว้ทีหลังได้)*
+
+> ไม่ต้องเตรียมล่วงหน้าก็ได้ — ทีมงานจะตั้งค่าให้ในวันอบรม
+
+1. เสียบสาย USB เชื่อมกับคอมพิวเตอร์ได้ (สายที่ส่งข้อมูลได้ ไม่ใช่สายชาร์จอย่างเดียว)
 2. เปิด **Developer options**: Settings → About tablet → กด **Build number** 7 ครั้ง
 3. เปิด **USB debugging**: Settings → System → Developer options → USB debugging = ON
 4. ตัวแอปหน้าตู้ ทีมงานจะนำไปติดตั้งให้ในวันอบรม
+
+### 3.2 ตู้ production (เครื่องหน้างานจริง) — **ต้องลง Tailscale**
+
+ตู้ที่ติดตั้งใช้งานจริงต้องมี **Tailscale** เพื่อให้ทีมงาน remote เข้าดูแล/อัปเดตจากระยะไกลได้ (เพราะ server หน้างานเป็นแบบ offline)
+
+ลูกค้าเตรียม:
+- **บัญชี Tailscale** (สมัครฟรีด้วย Google/Microsoft/GitHub) — ใช้บัญชีเดียวกันทั้งฝั่งตู้และทีมงาน
+- อนุญาตให้ตู้ออกอินเทอร์เน็ตได้ (Tailscale เชื่อมแบบ mesh ไม่ต้อง config router/port-forward)
+
+> การติดตั้ง Tailscale + ตั้งค่า kiosk / Server URL / API key / SSL cert ทีมงานทำให้ในวันติดตั้ง (ดู `tech-team-handbook.md` ส่วนที่ 2)
 
 ---
 
