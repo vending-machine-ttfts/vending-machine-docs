@@ -121,6 +121,11 @@ pnpm --version
 
 ถ้าขึ้นเลขเวอร์ชัน 10.x ถือว่าเรียบร้อย
 
+> **Node version manager (optional):** ถ้าเครื่องนี้ทำแค่โปรเจคนี้ → ลง **Node 24 LTS ตรงๆ** ก็พอ ไม่ต้องใช้ version manager. แต่ถ้าทำหลายโปรเจคที่ Node คนละเวอร์ชัน แนะนำ:
+> - **Volta** (<https://volta.sh>) — pin Node + pnpm ไว้ใน `package.json` ของ repo → ทุกคน clone แล้วได้เวอร์ชันตรงกันอัตโนมัติ (เหมาะกับทีม)
+> - **fnm** (<https://github.com/Schniz/fnm>) — เบา เร็ว อ่าน `.nvmrc` / `.node-version`
+> - **เลี่ยง `nvm-windows`** — corepack/pnpm shim พังเวลาสลับเวอร์ชัน (ต้อง `corepack enable` ใหม่ทุกครั้ง). asdf ก็ไม่รองรับ Windows native
+
 **ตั้งค่า Android Studio** (ทำหลังติดตั้งเสร็จ เปิดโปรแกรมครั้งแรก):
 
 1. เปิด Android Studio → ทำตาม Setup Wizard จนจบ (จะดาวน์โหลด Android SDK อัตโนมัติ)
