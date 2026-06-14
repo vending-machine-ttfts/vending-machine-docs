@@ -1,6 +1,6 @@
 # Checklist โปรแกรมที่ต้องติดตั้งล่วงหน้า (ก่อนวันอบรม 20)
 
-อ้างอิง stack จริง: API = NestJS, Web = React/Vite (pnpm) — build เป็น **Windows containers (Process Isolation)** รันบน Docker Engine ที่ Windows Server; DB = **SQL Server 2022 (ติดตั้ง native ไม่ใช่ container)**; IIS reverse proxy, deploy ด้วย GitOps + NSSM
+อ้างอิง stack จริง: API = NestJS, Web = React/Vite (pnpm) — build เป็น **Windows containers (Process Isolation)** รันบน Docker Engine ที่ Windows Server; DB = **SQL Server 2017+ Standard (native ไม่ใช่ container — prod รัน 2017)**; IIS reverse proxy, deploy ด้วย GitOps + NSSM
 
 ---
 
@@ -9,7 +9,7 @@
 | # | โปรแกรม | หมายเหตุ |
 |---|---------|----------|
 | 1 | **Docker Engine** (Windows Containers, **Process Isolation**) | รัน API/Web — **ไม่ใช่ Docker Desktop / ไม่ใช้ WSL2 / ไม่ใช่ Linux containers** |
-| 2 | **SQL Server 2022** | ฐานข้อมูล — ติดตั้ง native บนเครื่อง (ไม่ได้รันใน Docker) |
+| 2 | **SQL Server 2017 ขึ้นไป** | ฐานข้อมูล — native บนเครื่อง (ไม่ได้รันใน Docker) · prod = 2017 Standard, default instance :1433, collation `Thai_CI_AS` |
 | 3 | **Git** | ใช้ดึง repo gitops / config |
 | 4 | **NSSM** | ทำ Windows service สำหรับ deploy + log tail |
 | 5 | **IIS** + โมดูล **URL Rewrite** + **ARR** | reverse proxy เข้า container (ตาม `web-iis-server.config`) |

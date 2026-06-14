@@ -23,7 +23,7 @@
 |---|---------|-----------|
 | 1 | Windows Server 2025 + เปิด feature **Containers** | host ของระบบ |
 | 2 | **Docker Engine** (Windows Containers — ไม่ใช่ Docker Desktop) | รัน API / Web |
-| 3 | **SQL Server 2022** | ฐานข้อมูล — ติดตั้งตรงบนเครื่อง (ไม่ได้รันใน Docker) |
+| 3 | **SQL Server 2017 ขึ้นไป** (prod รัน 2017) | ฐานข้อมูล — ติดตั้งตรงบนเครื่อง (ไม่ได้รันใน Docker) |
 | 4 | Git | ดึงไฟล์ตั้งค่าระบบ (gitops) |
 | 5 | NSSM | ตั้งบริการ Windows ให้ระบบทำงานอัตโนมัติ |
 | 6 | IIS + URL Rewrite + ARR | ตัวกระจายเว็บ (reverse proxy) |
@@ -45,7 +45,7 @@ Enable-WindowsOptionalFeature -Online -FeatureName Containers -All
 - ทีมงานติดตั้งให้ผ่าน `setup-server.ps1` (Docker Engine 28.x)
 - ทดสอบหลังติดตั้ง: `docker version` → ฝั่ง **Server ต้องเป็น `windows/amd64`** และ `docker info` แสดง `Isolation: process`
 
-**3) SQL Server 2022** — ติดตั้งตรงบนเครื่อง (ใช้ license ของลูกค้า) ไม่ได้รันใน Docker
+**3) SQL Server (2017 ขึ้นไป)** — ติดตั้งตรงบนเครื่อง (ใช้ license ของลูกค้า) ไม่ได้รันใน Docker · prod ปัจจุบันรัน **SQL Server 2017** (default instance, port 1433)
 
 **4) Git**
 
