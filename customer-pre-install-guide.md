@@ -121,10 +121,11 @@ pnpm --version
 
 ถ้าขึ้นเลขเวอร์ชัน 10.x ถือว่าเรียบร้อย
 
-> **Node version manager (optional):** ถ้าเครื่องนี้ทำแค่โปรเจคนี้ → ลง **Node 24 LTS ตรงๆ** ก็พอ ไม่ต้องใช้ version manager. แต่ถ้าทำหลายโปรเจคที่ Node คนละเวอร์ชัน แนะนำ:
-> - **Volta** (<https://volta.sh>) — pin Node + pnpm ไว้ใน `package.json` ของ repo → ทุกคน clone แล้วได้เวอร์ชันตรงกันอัตโนมัติ (เหมาะกับทีม)
-> - **fnm** (<https://github.com/Schniz/fnm>) — เบา เร็ว อ่าน `.nvmrc` / `.node-version`
-> - **เลี่ยง `nvm-windows`** — corepack/pnpm shim พังเวลาสลับเวอร์ชัน (ต้อง `corepack enable` ใหม่ทุกครั้ง). asdf ก็ไม่รองรับ Windows native
+> **Node version manager (optional):** repo `api`/`web` pin Node ไว้ที่ `.nvmrc` + `.node-version` (= 24) แล้ว → ลง **fnm** หรือ **nvm** จะสลับเป็น Node 24 ให้อัตโนมัติเมื่อ `cd` เข้า repo (pnpm ถูก pin ผ่าน `packageManager` ใน package.json — corepack จัดการเวอร์ชันให้เอง)
+> - **fnm** (<https://github.com/Schniz/fnm>) — เบา เร็ว **แนะนำ**
+> - **nvm** (Windows ใช้ `nvm-windows`) — ใช้ได้ · ⚠️ หลัง `nvm use` ทุกครั้งต้อง `corepack enable` ใหม่ (shim ผูกกับ Node แต่ละตัว)
+> - **Volta** ยังไม่ได้ตั้งใน repo (ต้องเพิ่ม `volta` field ก่อน) · asdf ไม่รองรับ Windows native
+> ถ้าทำแค่โปรเจคนี้เครื่องเดียว → Node 24 LTS installer ตรงๆ ก็พอ
 
 **ตั้งค่า Android Studio** (ทำหลังติดตั้งเสร็จ เปิดโปรแกรมครั้งแรก):
 

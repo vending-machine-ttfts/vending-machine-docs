@@ -44,7 +44,7 @@
 
 > ข้อ 2–3 ข้ามได้ถ้าจะ build ผ่าน Docker อย่างเดียว แต่แนะนำลงไว้สำหรับรัน dev mode (`pnpm dev`)
 >
-> **Node manager (optional):** โปรเจคเดียว → Node 24 installer ตรงๆ พอ. หลายโปรเจค Node ต่างเวอร์ชัน → **Volta** (pin ใน `package.json`) หรือ **fnm**; **เลี่ยง `nvm-windows`** (corepack/pnpm พังตอนสลับเวอร์ชัน)
+> **Node manager (optional):** repo มี `.nvmrc` + `.node-version` = 24 → **fnm** หรือ **nvm** สลับ Node 24 ให้อัตโนมัติ (nvm-windows: ต้อง `corepack enable` ใหม่หลัง `nvm use`). pnpm pin ผ่าน `packageManager`. โปรเจคเดียว = Node 24 installer พอ
 
 ---
 
