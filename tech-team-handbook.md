@@ -1,7 +1,7 @@
 # คู่มือ Training — Setup & Operate ระบบ Vending Machine (สำหรับทีมเทคนิค)
 
 > **เวอร์ชันเอกสาร:** 1.0 — 2026-06-13
-> **อ้างอิงระบบ:** Android `0.0.42` (versionCode 48), API = NestJS (node:24), Web = React/Vite, DB = SQL Server 2022
+> **อ้างอิงระบบ:** Android `0.0.43` (versionCode 49), API = NestJS (node:24), Web = React/Vite, DB = SQL Server 2017 (native บน Windows)
 > **ที่มา:** การประชุมวางแผน training (มิ.ย. 2026)
 
 เอกสารนี้สำหรับ **ทีมเทคนิคของลูกค้า** (โปรแกรมเมอร์ + น้องใหม่) ที่จะดูแลระบบ Vending Machine แบบ **Offline** (server local ของลูกค้าเอง) ให้สามารถ **ติดตั้ง / ดูแล / debug / deploy** ได้ด้วยตนเอง — **ไม่ได้สอน coding ลึก** แต่ให้รู้ว่าระบบประกอบด้วยอะไร ใช้เครื่องมืออะไร ข้อมูลวิ่งผ่านช่องทางไหน และต้องทำอะไรเมื่อมีปัญหา
@@ -21,6 +21,7 @@
   - [4. โครงสร้างระบบ & การ Debug](#4-โครงสร้างระบบ--การ-debug)
   - [5. ข้อมูล & การคำนวณ Stock](#5-ข้อมูล--การคำนวณ-stock)
   - [6. Deploy & Update](#6-deploy--update)
+  - [7. Backup, Restore & Maintenance (Day-2 Ops)](#7-backup-restore--maintenance-day-2-ops)
 - [ภาคผนวก A — คำสั่งที่ใช้บ่อย](#ภาคผนวก-a--คำสั่งที่ใช้บ่อย)
 - [ภาคผนวก B — Troubleshooting รวม](#ภาคผนวก-b--troubleshooting-รวม)
 - [ภาคผนวก C — เอกสารอ้างอิง](#ภาคผนวก-c--เอกสารอ้างอิง)
@@ -103,7 +104,7 @@ flowchart LR
 
 | เรื่อง | เคส Cloud (ออนไลน์) | เคส Offline (server ลูกค้า) |
 |---|---|---|
-| ดึง Docker image | pull จาก Docker Hub อัตโนมัติ | **ต้อง `docker save` ใส่ USB ไป `docker load` หน้างาน** |
+| ดึง Docker image | pull จาก Docker Hub อัตโนมัติ | **Denso มีเน็ตตอน setup → `docker compose pull` ได้ปกติ** (USB `docker save`→`load` ไว้เผื่อ air-gap จริงเท่านั้น) |
 | Deploy โค้ดใหม่ | GitOps loop (git pull ทุก 60 วิ) | git pull จากเน็ตไม่ได้ → **โหลด image ใหม่ผ่าน USB / git mirror ภายใน** |
 | Log → ELK/Kibana | ส่งเข้า ELK กลาง | ELK กลางอาจเข้าไม่ถึง → **พึ่ง log ในเครื่อง** (`C:\logs`, `docker logs`, `adb logcat`) |
 | SSL cert ของ API | โดเมนจริง + cert | ใช้ภายใน — อาจเป็น IP/โดเมน local + cert ตัวเอง |
@@ -122,8 +123,8 @@ flowchart LR
 - [ ] ทีมเตรียม **USB** ที่มี Docker images (`docker save`) + APK + ตัวติดตั้ง (เผื่อ server ไม่มีเน็ต)
 - [ ] confirm กับ IT ลูกค้า: server ลง SQL Server / database ให้หรือยัง
 
-**Docker images ที่ต้องมี** (เตรียม `docker save` ถ้า offline):
-`mcr.microsoft.com/mssql/server:2022-latest`, `redis:latest`, `axllent/mailpit:latest`, `<registry>/vending-machine-api:<tag>`, `<registry>/vending-machine-web:<tag>`
+**Docker images ที่ต้องมี** — มีแค่ **2 ตัว** (api + web): `<registry>/vending-machine-api:<tag>`, `<registry>/vending-machine-web:<tag>`
+> SQL Server = native (host), Redis + Mailpit = NSSM service → **ไม่ใช่ container** จึงไม่ต้องเตรียม image. Denso มีเน็ตตอน setup → `docker compose pull` เอาเองได้ (USB `docker save` ไว้เผื่อ air-gap เท่านั้น)
 
 ### 0.5 ศัพท์ที่จะเจอบ่อย
 
@@ -148,6 +149,81 @@ flowchart LR
 ## 1. Setup Server ใหม่ (Offline)
 
 > รายละเอียดเต็ม + troubleshooting อยู่ใน **`server-setup-guide.md`** (กรณี A = server ใหม่, กรณี B = เพิ่ม site) — ส่วนนี้สรุป flow + จุดที่ต่างสำหรับ offline
+>
+> 🏃 **กดตามวันจริง (เช็กลิสต์ทีละ step):** [`site-setup-runsheet.md`](site-setup-runsheet.md) — เปิดคู่กับหัวข้อนี้
+
+### 1.0 สคริปต์อัตโนมัติ (ทางลัด — ลองตัวนี้ก่อน manual)
+
+repo `vending-machine-gitops` มีสคริปต์ครอบงาน setup ทั้งหมด — ขั้นตอน manual (1.1–1.3) ไว้ "เข้าใจระบบ + กู้ตอนสคริปต์พัง"
+
+| สคริปต์ | ทำอะไร | ใช้เมื่อ |
+|---|---|---|
+| `setup-server.ps1` | กรณี A: Docker + Git + NSSM + IIS/ARR (ยกเว้น SQL Server) | server ใหม่ ครั้งเดียว |
+| `setup-windows-services.ps1` | ลง Redis + Mailpit (เป็น NSSM service) | server ใหม่ ครั้งเดียว |
+| `init-secrets.ps1` | สร้าง `.env.secrets` แบบ interactive (gen JWT ให้, มาสก์ค่า, มี guideline ทุกฟิลด์) | ก่อนสร้าง site |
+| **`setup-site.ps1`** | **กรณี B ทั้งก้อน:** clone + secret stubs + dirs + IIS site/pool + NSSM deploy service + DB (optional) — **idempotent รันซ้ำได้** | ลูกค้า/เครื่องใหม่ |
+| `doctor.ps1` | health check แบบอ่านอย่างเดียว (server + per-brand), exit 0=ผ่าน 1=มี FAIL | หลัง setup / ทุกครั้งที่สงสัย |
+| `deploy.ps1` | loop deploy (git pull → render compose → blue-green) | รันเป็น NSSM service auto |
+| `setup-observability-services.ps1` | ส่ง log เข้า ELK | **offline ข้ามได้** |
+
+**Fast path — server ใหม่ + ลูกค้าแรก:**
+
+```powershell
+# ── Bootstrap (กรณี A, ครั้งแรกของเครื่อง): fresh server ยังไม่มี git/pwsh ──
+# เอา setup-server.ps1 เข้า C:\ ก่อน (มันเป็น script เดี่ยว standalone):
+#   ทางหลัก: TeamViewer → "ไฟล์ & ส่วนเพิ่มเติม" → ส่งไฟล์ setup-server.ps1 ไป C:\
+#   ทางสำรอง (repo public): iwr <gitops-raw-url>/setup-server.ps1 -OutFile C:\setup-server.ps1
+powershell -ExecutionPolicy Bypass -File C:\setup-server.ps1   # PS 5.1! (pwsh ยังไม่มี) reboot+รันซ้ำถ้าแจ้ง REBOOT REQUIRED
+
+# ── มี git+pwsh+Docker+NSSM+IIS แล้ว → clone repo จริง + ที่เหลือ ──
+# repo private: ฝัง PAT (scope repo) — ดู "Git auth" §1.2.  <gitops-repo-url> = host/path (เช่น github.com/.../vending-machine-gitops.git ไม่ใส่ https://)
+# repo public: ตัด <PAT>@ ออก → git clone https://<gitops-repo-url> C:\gitops-bootstrap
+git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
+cd C:\gitops-bootstrap
+pwsh -File .\setup-windows-services.ps1 -RedisPassword "<รหัส>"   # Redis + Mailpit (NSSM)
+
+# ── ทุกลูกค้า/เครื่องใหม่ (กรณี B) ──
+pwsh -File .\init-secrets.ps1 -Brand denso -Domain denso.local
+pwsh -File .\setup-site.ps1 -Brand denso -Domain denso.local `
+  -BlueWebPort 9080 -BlueApiPort 9081 -GreenWebPort 9082 -GreenApiPort 9083 `
+  -RedisDb 2 -GitHubPat <PAT> -CreateDatabase
+
+# ── เช็คผล ──
+pwsh -File .\doctor.ps1 -Brand denso     # ต้องไม่มี FAIL
+```
+
+> 🔌 **เคส Denso (วันที่ 20):** server **มีเน็ตตอน setup** → `docker compose pull` ดึง image (api+web) จาก Docker Hub ได้ปกติ **ไม่ต้อง** `docker save`/`load`. **SQL Server = native** (พีเตอร์ลงให้), **Redis/Mailpit = NSSM service** — ทั้งสองไม่ใช่ container. หลังส่งมอบ server offline → `deploy.ps1` แค่ idle (`git/compose pull` fail แต่ service รันต่อจาก image ที่ pull ไว้). *ถ้าเจอ air-gap จริง (ไม่มีเน็ตเลย) ดู §1.4*
+
+#### ⚠️ Gotchas ตอนรัน `setup-server.ps1` (เจอจริง)
+
+**1. ค้างที่ NSSM — `nssm.cc` ล่ม (503 Service Temporarily Unavailable):** `nssm.cc` ดาวน์ไทม์บ่อย. Docker/Git/pwsh โหลดผ่าน (จาก docker.com/GitHub) แต่ NSSM พัง → script หยุด → **IIS + docker network ยังไม่ได้ทำ**. เลิกพึ่ง nssm.cc → **ก๊อป nssm จากเครื่อง prod ที่มีอยู่แล้ว** (binary เดียวกัน พิสูจน์แล้ว):
+
+```powershell
+# บนเครื่อง prod (มี C:\nssm อยู่แล้ว):
+Compress-Archive C:\nssm C:\nssm.zip -Force
+#   → TeamViewer "ไฟล์ & ส่วนเพิ่มเติม": ดาวน์โหลด C:\nssm.zip จาก prod แล้วอัปโหลดเข้าเครื่องใหม่
+
+# บนเครื่องใหม่:
+Expand-Archive C:\nssm.zip C:\ -Force
+Test-Path C:\nssm\win64\nssm.exe          # ต้องได้ True
+
+# รัน setup-server.ps1 ซ้ำ → NSSM = "Already installed" → ทำ IIS + network ต่อจนจบ
+powershell -ExecutionPolicy Bypass -File C:\setup-server.ps1 *>&1 | Tee-Object C:\setup-server.log
+```
+> ทางอื่น (nssm.cc แกว่ง 503 บ้าง) — โหลดจาก **Wayback (Internet Archive, always up)** ไฟล์เดิม:
+> ```powershell
+> New-Item -ItemType Directory C:\nssm -Force | Out-Null
+> Invoke-WebRequest "https://web.archive.org/web/20260508201339id_/https://nssm.cc/release/nssm-2.24.zip" -OutFile C:\nssm.zip -UseBasicParsing
+> Expand-Archive C:\nssm.zip C:\nssmx -Force; Copy-Item C:\nssmx\nssm-2.24\* C:\nssm\ -Recurse -Force
+> Test-Path C:\nssm\win64\nssm.exe   # True
+> ```
+> หรือ retry official `https://nssm.cc/release/nssm-2.24.zip` (refresh จน 200)
+
+**2. อย่า double-click `.ps1`** — จะเปิดใน editor (ไม่รัน) + ไม่ได้ admin/bypass. ใช้คำสั่งใน **admin PowerShell** แล้วกด **↑** เรียกซ้ำ
+
+**3. Git ลงซ้ำทุกครั้งที่รัน** — `setup-server.ps1` เช็ค git จาก PATH ของ session ปัจจุบัน; installer อัปเดต PATH แล้วแต่ session เก่ายังไม่เห็น → **เปิด admin PowerShell ใหม่** หลังลง git รอบแรก แล้วรอบหน้าจะขึ้น "Already installed"
+
+**4. REBOOT REQUIRED** (เปิด Containers feature ครั้งแรก) → `Restart-Computer` → รันคำสั่งเดิมซ้ำให้จบ (idempotent ข้ามที่ลงแล้ว)
 
 ### 1.1 ติดตั้งพื้นฐาน (ครั้งเดียวต่อเครื่อง — กรณี A)
 
@@ -164,18 +240,40 @@ flowchart LR
 
 > 💡 **ทางลัด:** มีสคริปต์ `setup-server.ps1` (กรณี A ทั้งหมด ยกเว้น SQL Server) ใน repo gitops — ขั้นตอน manual ข้างบนใช้เป็นเอกสารอธิบาย/สำรองตอนสคริปต์ใช้ไม่ได้
 
-**🔌 Offline delta:** ถ้า server ไม่มีเน็ต — เตรียมตัวติดตั้งทั้งหมด (Docker zip, Git, NSSM, IIS module, SQL Server) ใส่ USB ไปด้วย และ `docker load` images จากไฟล์ที่ `docker save` มา:
+**🔌 Offline delta (เฉพาะ air-gap จริง — Denso วันที่ 20 มีเน็ต ข้ามได้):** ถ้า server ไม่มีเน็ตเลย เตรียม installer ทั้งหมด (Docker zip, Git, NSSM, IIS module) ใส่ USB และ `docker load` **เฉพาะ image ของ api + web** — SQL Server ลง native, Redis/Mailpit เป็น NSSM service จึง **ไม่มี** ใน container (ตรงกับ §1.6):
 
 ```powershell
 docker load -i vending-machine-api.tar
 docker load -i vending-machine-web.tar
-docker load -i mssql-2022.tar
-docker load -i redis.tar
-docker load -i mailpit.tar
-docker images   # เช็คว่าได้ครบ
+docker images   # ควรเห็นแค่ <registry>/vending-machine-{api,web}
 ```
 
-### 1.2 สร้าง Site แรก (กรณี B)
+### 1.2 Git auth — สร้าง PAT (ก่อน clone repo)
+
+GitHub ไม่รับ password ทาง HTTPS แล้ว → ใช้ **Personal Access Token (PAT)** *(repo private; public ข้ามได้)*
+
+**(1) สร้าง PAT** — ที่ <https://github.com/settings/personal-access-tokens> → **Generate new token** (fine-grained):
+- **Token name:** เช่น `denso-server-gitops`
+- **Expiration:** ตั้งอายุ (เช่น 90 วัน)
+- **Resource owner:** เลือก **org ที่เป็นเจ้าของ repo gitops** (ไม่ใช่ account ตัวเอง) ⭐
+- **Repository access:** *Only select repositories* → `vending-machine-gitops`
+- **Permissions** → Repository permissions → **Contents: Read-only** (พอสำหรับ clone + pull)
+- **Generate token** → **copy ทันที** (โชว์ครั้งเดียว!)
+- *ถ้า org ตั้ง policy ให้ admin อนุมัติ PAT → token จะ pending จน approve;* เลี่ยงด้วย **classic**: <https://github.com/settings/tokens> → Generate (classic) → ติ๊ก scope **`repo`**
+
+**(2) clone (ฝัง PAT ใน URL)** — `<gitops-repo-url>` = host/path (เช่น `github.com/<org>/vending-machine-gitops.git`, ไม่ใส่ `https://`):
+```powershell
+git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
+```
+(หรือ clone ปกติแล้ว Git Credential Manager จะเด้ง browser ให้ login)
+
+**(3) deploy service (NSSM = SYSTEM account):** ไม่มี prompt + ไม่เห็น credential ที่คุณ login → `git pull` จะ **ค้าง** (log เห็น `Tick` แล้วเงียบ). ใส่ **`setup-site.ps1 -GitHubPat <PAT>`** → มันฝัง PAT ใน remote URL ให้อัตโนมัติ
+
+> repo **public** → ข้าม (1)-(3) ทั้งหมด: `git clone https://<gitops-repo-url> C:\gitops-bootstrap` เฉย ๆ
+
+---
+
+### 1.3 สร้าง Site แรก (กรณี B)
 
 ใช้แบรนด์ตัวอย่าง `denso` — แทนชื่อจริงทุกจุด **วางแผนค่าก่อนเริ่ม** (กันชนกับ site อื่น ถ้ามี):
 
@@ -187,6 +285,49 @@ docker images   # เช็คว่าได้ครบ
 | Database | `denso_db` |
 | Redis DB index | index ใหม่ (เช่น `2`) |
 | IIS site | `C:\inetpub\wwwroot\DENSO` + host ภายใน |
+
+> 🗄️ **SQL Server: Standard vs Express — เช็ก/setup ต่างกัน** (เช็กก่อนทำ DB step)
+>
+> เช็ก edition + instance (auto-detect — ใช้ได้ทั้ง Standard default + Express named):
+> ```powershell
+> # default MSSQLSERVER (Standard) → localhost ; ไม่มีก็หา named instance แรก (เช่น SQLEXPRESS = Express)
+> $inst = if (Get-Service MSSQLSERVER -EA SilentlyContinue) {'localhost'} else {'localhost\' + ((Get-Service 'MSSQL$*' | Select -First 1).Name -split '\$')[1]}
+> Get-Service 'MSSQL*' | Where Status -eq 'Running' | Select Name
+> sqlcmd -S $inst -E -C -Q "SELECT SERVERPROPERTY('Edition') Edition, SERVERPROPERTY('ProductVersion') Version, SERVERPROPERTY('InstanceName') Instance;"
+> ```
+>
+> | เรื่อง | **Standard** (เช่น prod = `MSSQLSERVER`) | **Express** (เช่น Denso = `SQLEXPRESS`) |
+> |---|---|---|
+> | instance | default `MSSQLSERVER` | named `SQLEXPRESS` |
+> | TCP 1433 | พร้อม (default listen 1433) | **ต้องตั้ง static เอง** (named = dynamic port) |
+> | sa / Mixed Mode | มักเปิดไว้แล้ว | **มักปิด → ต้องเปิด Mixed Mode + ตั้ง sa** |
+> | `-S` / `-SqlServerInstance` | `localhost` | `localhost\SQLEXPRESS` |
+> | limit | ไม่มี | DB ≤10GB, RAM 1GB, 1 socket — site เดียวพอ |
+> | sqlcmd (ODBC18) | ใส่ `-C` (trust self-signed cert) | `-C` เหมือนกัน |
+>
+> **ถ้าเป็น Express — ทำ 3 ขั้นก่อน (instance `MSSQL$SQLEXPRESS`):**
+>
+> **(1) เปิด Mixed Mode + เปิด sa + ตั้ง password** (รันใน sqlcmd `-E` หรือ SSMS New Query ที่ต่อ Windows auth):
+> ```powershell
+> sqlcmd -S localhost\SQLEXPRESS -E -C -Q "EXEC xp_instance_regwrite N'HKEY_LOCAL_MACHINE',N'Software\Microsoft\MSSQLServer\MSSQLServer',N'LoginMode',REG_DWORD,2; ALTER LOGIN sa ENABLE; ALTER LOGIN sa WITH PASSWORD='<sa-pwd>';"
+> ```
+> - `LoginMode=2` = Mixed Mode (SQL+Windows) · `ALTER LOGIN sa ENABLE` = เปิด sa · `WITH PASSWORD` = ตั้งรหัส (strong 8+ ผสมเลข/ใหญ่/สัญลักษณ์)
+> - **GUI ก็ได้:** server Properties → Security → "SQL Server and Windows Authentication mode" ; Security → Logins → sa → ตั้ง Password + Status = Enabled
+>
+> **(2) เปิด TCP static 1433** (named instance = dynamic port → ต้อง fix):
+> ```powershell
+> $t="HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL').SQLEXPRESS)\MSSQLServer\SuperSocketNetLib\Tcp"
+> Set-ItemProperty $t -Name Enabled -Value 1; Set-ItemProperty "$t\IPAll" -Name TcpDynamicPorts -Value ''; Set-ItemProperty "$t\IPAll" -Name TcpPort -Value '1433'
+> ```
+>
+> **(3) Restart service** (Mixed Mode + TCP มีผล **หลัง restart เท่านั้น** ⭐ — ไม่ restart = sa login fail) แล้ว verify:
+> ```powershell
+> Restart-Service 'MSSQL$SQLEXPRESS' -Force
+> sqlcmd -S localhost\SQLEXPRESS -U sa -P '<sa-pwd>' -C -Q "SELECT @@VERSION;"  # เช็ค sa login (Mixed Mode + pwd ถูก)
+> sqlcmd -S localhost,1433       -U sa -P '<sa-pwd>' -C -Q "SELECT 1"           # ต่อด้วย sa ผ่าน port 1433 = path ที่ container ใช้
+> Test-NetConnection localhost -Port 1433 | Select TcpTestSucceeded        # True
+> ```
+> เช็กลิสต์เต็ม → [`site-setup-runsheet.md` Phase 3](site-setup-runsheet.md)
 
 ขั้นตอน (ดูคำสั่งเต็มใน `server-setup-guide.md` B1–B10):
 
@@ -200,7 +341,7 @@ docker images   # เช็คว่าได้ครบ
 
 > ⚠️ `DATABASE_URL` ใน template ต้องชี้ **ชื่อ host จริงของ server ใหม่** (เช่น `DENSO-SVR:1433`) — ห้ามใช้ `localhost` เพราะ API อยู่ใน container
 
-### 1.3 Offline delta — Deploy โดยไม่มี GitHub/Docker Hub
+### 1.4 Offline delta — Deploy โดยไม่มี GitHub/Docker Hub
 
 GitOps loop ปกติ = `git pull` + `docker compose pull` จากเน็ต ถ้า offline:
 
@@ -210,7 +351,7 @@ GitOps loop ปกติ = `git pull` + `docker compose pull` จากเน็
   2. หรือ deploy **manual**: วาง image ใหม่ → `docker compose -p denso-blue up -d` → สลับ IIS เอง (อธิบายในหัวข้อ 6.1)
 - เอกสาร `setup-observability` (ELK) **ข้ามได้** ถ้า server เข้า ELK กลางไม่ได้ — log อยู่ใน `C:\logs\denso\*.log` + `docker logs` แทน
 
-### 1.4 ✅ เช็คว่า Server ขึ้นครบ
+### 1.5 ✅ เช็คว่า Server ขึ้นครบ
 
 ```powershell
 Get-Service denso-gitops-deploy                       # service running
@@ -221,6 +362,45 @@ curl -H "Host: denso.local" http://127.0.0.1/         # ผ่าน IIS
 ```
 
 ทั้งหมดผ่าน = server พร้อมให้ตู้เชื่อมต่อ
+
+### 1.6 Firewall & Ports (จำเป็น — ไม่งั้น API ต่อ DB ไม่ได้)
+
+API/Web รันใน **container** แต่ SQL Server / Redis / Mailpit รันบน **host** (native) → container ต้องวิ่งออกมาหา host ผ่านชื่อ host (เช่น `DENSO-SVR`) **ไม่ใช่ `localhost`** เพราะใน container `localhost` คือตัว container เอง
+
+> ⚠️ บน Windows container **`host.docker.internal` ไม่ resolve** — ต้องใช้ชื่อ host จริง หรือ IP ของ nat-gateway
+
+**ต้องเปิด Windows Firewall (inbound) ให้ครบ:**
+
+| Port | Service | ใคร→ใคร |
+|---|---|---|
+| **1433** | SQL Server | **container → host** (API ต่อ DB) |
+| **6379** | Redis | **container → host** (cache/queue) |
+| **1025** | Mailpit SMTP | **container → host** (ส่งอีเมล) |
+| 80 / 443 | IIS | LAN → host (ตู้ + เบราว์เซอร์ admin) |
+| 5555 | ADB | เครื่อง dev → ตู้ (ไม่เกี่ยว server) |
+
+```powershell
+# เปิดให้ container (Docker NAT subnet) ต่อ host services
+New-NetFirewallRule -DisplayName "VM container->host SQL"   -Direction Inbound -LocalPort 1433 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "VM container->host Redis" -Direction Inbound -LocalPort 6379 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "VM container->host SMTP"  -Direction Inbound -LocalPort 1025 -Protocol TCP -Action Allow
+```
+
+> Tailscale จัดการ NAT traversal เอง (UDP 41641 ขาออก) — ปกติไม่ต้องเปิด inbound เพิ่ม
+
+### 1.7 หลัง Server ขึ้น — Admin คนแรก & Seed
+
+API รัน **TypeORM migration อัตโนมัติตอน container start** (`entrypoint.js`) — migration สร้างทั้ง schema + ข้อมูลพื้นฐาน:
+
+- **Admin user คนแรก** (จาก migration `seed-user`): username `admin`, email `admin@ttfts.com`, role `admin` + permission ครบทุกตัว
+- **Permission / translation keys** พื้นฐาน (จาก migration อื่น ๆ)
+
+**Login ครั้งแรก:**
+1. เข้าเว็บ admin → login ด้วย `admin@ttfts.com` + **รหัสเริ่มต้น** (ขอจากทีมผู้ติดตั้ง)
+2. 🔒 **เปลี่ยนรหัส admin ทันที** — รหัสเริ่มต้นเหมือนกันทุก deploy ถ้าไม่เปลี่ยน = ใครก็ login ได้ (จุดเสี่ยงความปลอดภัย)
+3. สร้าง user/แผนก/permission group จริงของลูกค้า แล้วใช้บัญชีนั้นแทน
+
+> **อย่ารัน** `seed:dev` / `seed:demo` บน production — เป็นข้อมูล mockup สำหรับ dev เท่านั้น (production ได้ admin + permission จาก migration พอแล้ว)
 
 ---
 
@@ -588,6 +768,68 @@ adb logcat -s UpdateActivity AutoLaunchReceiver InstallResultReceiver DeviceOwne
 
 ---
 
+## 7. Backup, Restore & Maintenance (Day-2 Ops)
+
+> เคส offline ลูกค้าเป็น **เจ้าของข้อมูลเอง** — ไม่มี cloud backup อัตโนมัติ ส่วนนี้คือสิ่งที่ต้องทำหลังระบบขึ้นแล้วเพื่อไม่ให้ข้อมูลหาย
+
+### 7.1 ต้อง Backup อะไรบ้าง
+
+| ของ | ที่อยู่ | สำคัญแค่ไหน |
+|---|---|---|
+| **Database** | SQL Server `denso_db` | 🔴 สูงสุด — ข้อมูลทั้งหมด (stock, transaction, user) |
+| **Secrets** | `C:\gitops-denso\.env.secrets` + `.env.docker` | 🔴 สูงสุด — **ไม่อยู่ใน git** อยู่บน server เครื่องเดียว disk พัง = หาย กู้ยาก |
+| **Uploads** | `C:\gitops-denso\upload_data\` | 🟠 รูปสินค้า/โลโก้/แบนเนอร์ |
+| IIS cert | export `.pfx` ของ cert HTTPS | 🟡 ออกใหม่ได้แต่เก็บไว้สะดวกกว่า |
+| Redis / Mailpit | — | ⚪ ไม่ต้อง (cache/อีเมลทดสอบ ชั่วคราว) |
+
+### 7.2 Backup Database
+
+```sql
+-- backup เต็ม (รันใน SSMS หรือ sqlcmd)
+BACKUP DATABASE [denso_db]
+  TO DISK = N'D:\backup\denso_db_full.bak'
+  WITH COMPRESSION, INIT, FORMAT, NAME = N'denso_db full';
+```
+
+ตั้งให้อัตโนมัติ — **Task Scheduler** (หรือ SQL Agent ถ้ามี) รันสคริปต์ข้างบนทุกวัน + **คัดลอก `.bak` ออกนอกเครื่อง** (USB / NAS / external disk) เพราะ backup ที่อยู่ disk เดียวกับ DB ไม่ช่วยตอน disk พัง
+
+```powershell
+# backup secrets + uploads (รันคู่กับ DB backup)
+Copy-Item C:\gitops-denso\.env.secrets, C:\gitops-denso\.env.docker D:\backup\secrets\ -Force
+Compress-Archive C:\gitops-denso\upload_data\* D:\backup\upload_data.zip -Force
+```
+
+### 7.3 Restore (กู้คืน)
+
+```sql
+RESTORE DATABASE [denso_db]
+  FROM DISK = N'D:\backup\denso_db_full.bak'
+  WITH REPLACE;
+```
+
+แล้ว: วาง `.env.secrets`/`.env.docker` กลับที่ `C:\gitops-denso\` → คืน `upload_data\` → restart deploy service → `doctor.ps1 -Brand denso`
+
+> **ซ้อม restore อย่างน้อย 1 ครั้ง** บนเครื่องทดสอบ — backup ที่ไม่เคย restore = ไม่รู้ว่าใช้ได้จริงไหม
+
+### 7.4 Maintenance ประจำ (Day-2)
+
+| งาน | ทำยังไง | ความถี่ |
+|---|---|---|
+| **Health check** | `pwsh -File doctor.ps1 -Brand denso` (ต้องไม่มี FAIL) | ทุกสัปดาห์ / เมื่อสงสัย |
+| **ดู disk เหลือ** | log + docker image โตเรื่อย ๆ | ทุกสัปดาห์ |
+| **ล้าง log เก่า** | trim `C:\logs\denso\*.log` (NSSM ตั้ง AppRotateFiles ได้) | เดือนละครั้ง |
+| **ล้าง docker ขยะ** | `docker image prune` / `docker builder prune` (อย่าลบ image ที่ใช้อยู่) | เมื่อ disk ใกล้เต็ม |
+| **ต่ออายุ cert HTTPS** | เช็ควันหมดอายุ → ออกใหม่ → rebind ใน IIS (+ SNI) | ก่อนหมดอายุ |
+| **ลบ .bak เก่า** | เก็บย้อนหลังพอเหมาะ (เช่น 14–30 วัน) | อัตโนมัติใน backup script |
+
+**ลำดับ restart หลัง server reboot** (ปกติ service auto-start ให้เอง ถ้าทำมือ):
+```
+SQL Server → Redis/Mailpit (NSSM) → Docker → <brand>-gitops-deploy (ขึ้น container) → IIS
+```
+ถ้า API ขึ้นก่อน DB พร้อม จะ retry เอง แต่ให้ SQL Server พร้อมก่อนดีสุด
+
+---
+
 ## ภาคผนวก A — คำสั่งที่ใช้บ่อย
 
 ```bash
@@ -597,6 +839,11 @@ Get-Content C:\logs\<brand>\<brand>-gitops-deploy.plain.log -Tail 30
 docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
 docker logs <container> --tail 100
 docker load -i image.tar / docker save -o image.tar <image>
+pwsh -File doctor.ps1 -Brand <brand>      # health check (0=ผ่าน)
+
+# ──── Backup (รันประจำ) ────
+# DB: BACKUP DATABASE [<brand>_db] TO DISK=N'D:\backup\<brand>.bak' WITH COMPRESSION,INIT;
+Copy-Item C:\gitops-<brand>\.env.secrets,.env.docker D:\backup\secrets\ -Force
 
 # ──── ตู้ Android (ADB) ────
 adb connect 100.x.x.x:5555                # ผ่าน Tailscale
@@ -622,6 +869,7 @@ scrcpy --video-bit-rate 2M --max-size 960 --max-fps 15 --no-audio
 | Deploy เห็น Tick แล้วเงียบ | `git pull` รอ credential → ตั้ง PAT ใน remote URL |
 | `docker compose pull` denied | `.env.docker` ผิด → ลบโฟลเดอร์ `.docker\` แล้ว restart |
 | เว็บ 502 Bad Gateway | container ไม่รัน/port ไม่ตรง slot → `docker ps` เทียบ `web.config` |
+| API ต่อ DB/Redis ไม่ได้ (container) | ใช้ `localhost`/`host.docker.internal` (ไม่ resolve) → ใช้ชื่อ host จริง + เปิด firewall 1433/6379/1025 (1.6) |
 | Docker ค้างทั้งเครื่อง / HNS hang | อย่าสร้าง NAT network หลายอัน → kill `dockerd` → ลบ container folders → restart **HNS** ก่อนแล้วค่อย start docker |
 | ตู้ `adb connect` timeout | Tailscale ไม่ขึ้น → `tailscale status`; ADB TCP ปิด → ต่อ USB รัน `adb tcpip 5555` |
 | set-device-owner ไม่ได้ | มี Google account / provisioned แล้ว → Factory Reset ก่อน |
@@ -649,12 +897,13 @@ scrcpy --video-bit-rate 2M --max-size 960 --max-fps 15 --no-audio
 | วัน | รูปแบบ | หัวข้อ (อ้างเลขในเล่ม) | ประมาณเวลา |
 |---|---|---|---|
 | **20** | On-site | 0. ภาพรวม + เตรียมตัว | 30 นาที |
-| | | 1. Setup Server (offline) — ทำเครื่องจริง | 2–3 ชม. |
+| | | 1. Setup Server (offline) — สคริปต์ + firewall + admin คนแรก — ทำเครื่องจริง | 2–3 ชม. |
 | | | 2. Setup ตู้ Android + Tailscale — ทำเครื่องจริง | 1.5–2 ชม. |
 | | | 3. เพิ่ม Machine ในระบบ + ทดสอบ end-to-end | 1 ชม. |
 | **22 เย็น** | Online (~18:00–20:30) | 4. โครงสร้างระบบ & การ Debug (เครื่องมือ + playbook) | ~2 ชม. |
 | **23 เย็น** | Online (~18:00–20:30) | 5. ข้อมูล & การคำนวณ Stock | ~1 ชม. |
 | | | 6. Deploy & Update (server + APK OTA) | ~1 ชม. |
+| | | 7. Backup / Restore / Maintenance (Day-2 Ops) | ~30 นาที |
 
 > ถ้าเนื้อหา Day 22–23 ไม่จบ → นัดเพิ่มอีกครั้ง (ตามที่ตกลงในที่ประชุม)
 
