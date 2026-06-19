@@ -341,6 +341,30 @@ git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
 
 > ⚠️ `DATABASE_URL` ใน template ต้องชี้ **ชื่อ host จริงของ server ใหม่** (เช่น `DENSO-SVR:1433`) — ห้ามใช้ `localhost` เพราะ API อยู่ใน container
 
+#### ตาราง `.env.secrets` — ที่มาแต่ละค่า
+
+`init-secrets.cmd` ถามทีละช่อง (มี help + SOURCE ในตัว). ค่า **auto** กด Enter ผ่านได้, ค่าที่ต้อง **กรอกเอง** อยู่ในตาราง:
+
+| Key | ที่มา (SOURCE) |
+|---|---|
+| `BASE_URL` | domain ของ site → `https://<brand>.local` *(auto จาก registry)* |
+| `DB_HOST` | **machine name ของ server** (`hostname`) หรือ nat gateway IP — ห้าม `localhost` (API อยู่ใน container) |
+| `REDIS_HOST` / `SMTP_HOST` | = `DB_HOST` (Redis/Mailpit รัน native บนเครื่อง) |
+| `DATABASE_NAME` | `Vending_<Brand>` — setup-site สร้าง *(auto จาก registry)* |
+| `DB_PASSWORD` | **sa password** ที่ตั้งตอนเปิด Mixed Mode (`ALTER LOGIN sa WITH PASSWORD`) |
+| `REDIS_PASSWORD` | = ค่าที่ส่งให้ `setup-windows-services.ps1 -RedisPassword` *(default ตรงกัน)* |
+| `REDIS_DB` | จองต่อ brand *(auto จาก registry)* |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | *(auto-gen 32-byte hex — Enter ผ่าน)* |
+| `MACHINE_CREATE_PASSWORD` | **กำหนดเอง** — ใช้พิมพ์ตอน register ตู้ในแอป (เก็บให้ทีม) |
+| `APM_SERVICE_NAME` | *(auto `vending_<brand>_api`)* |
+| `ELASTIC_APM_SECRET_TOKEN` | token ฝั่ง ELK box (repo `vending-machine-elk`, ส่งเป็น `X-Log-Token` ไป `/logs-intake`) — **ว่าง** ถ้า site นี้ไม่ ship log เข้า ELK กลาง |
+| `TURNSTILE_ENABLED` | เลือกเอง — **offline = `0`** |
+| `TURNSTILE_SECRET_KEY` / `TURNSTILE_SITE_KEY` | Cloudflare dashboard > Turnstile > widget *(test key ถ้า disable)* |
+| `LOCIZE_API_KEY` / `LOCIZE_PROJECT_ID` | Locize dashboard *(ว่างถ้าไม่ใช้ — แปลภาษา sync ผ่าน API ได้)* |
+| `VITE_API_KEY` | **สุ่มเอง strong** — API validate ค่านี้ (`x-api-key`) |
+| `DOCKER_USER` | Docker Hub account ที่ pull private image ได้ *(default pre-filled)* |
+| `DOCKER_PASS` | **Docker Hub access token** (ไม่ใช่ login password) — hub.docker.com > Account Settings > Personal access tokens (Read-only พอ) |
+
 ### 1.4 Offline delta — Deploy โดยไม่มี GitHub/Docker Hub
 
 GitOps loop ปกติ = `git pull` + `docker compose pull` จากเน็ต ถ้า offline:

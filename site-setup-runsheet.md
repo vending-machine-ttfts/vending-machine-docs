@@ -124,7 +124,20 @@
     sqlcmd -S localhost -C -Q "IF DB_ID('denso_db') IS NULL CREATE DATABASE [denso_db];"
     ```
   - ⚠️ warning `.env.docker missing` = **harmless** — deploy อ่าน `.env.secrets` ก่อน (`.env.docker` = legacy fallback). ใส่ `DOCKER_USER/PASS` ใน `.env.secrets` พอ ไม่ต้องสร้าง `.env.docker`
-- [ ] เติม `C:\gitops-denso\.env.secrets` — 🖱️ **ดับเบิลคลิก `C:\gitops-bootstrap\init-secrets.cmd`** → พิมพ์ brand → ถามทีละช่อง (`DB_HOST=<machine name>`, `DB_PASSWORD`, `VITE_API_KEY`, `DOCKER_USER/PASS`, BASE_URL ฯลฯ) มี help ทุกช่อง + ประกอบ DATABASE_URL ให้, `-Force` ทับ stub เก็บ `.bak`
+- [ ] เติม `C:\gitops-denso\.env.secrets` — 🖱️ **ดับเบิลคลิก `C:\gitops-bootstrap\init-secrets.cmd`** → เลือก site → ถามทีละช่อง (มี help + SOURCE ในตัว) + ประกอบ DATABASE_URL ให้, `-Force` ทับ stub เก็บ `.bak`
+  - **ที่มาแต่ละค่า** (auto = Enter ผ่าน; ที่เหลือกรอกเอง) — รายละเอียดเต็ม → [`tech-team-handbook.md` §1.3](tech-team-handbook.md):
+
+    | Key | ที่มา |
+    |---|---|
+    | `BASE_URL` / `DATABASE_NAME` / `REDIS_DB` / `APM_SERVICE_NAME` / `JWT_*` | *auto* (registry / gen) — Enter ผ่าน |
+    | `DB_HOST` (+`REDIS_HOST`/`SMTP_HOST`) | machine name ของ server (`hostname`) — **ห้าม localhost** |
+    | `DB_PASSWORD` | sa password (ตั้งตอน Mixed Mode + sa, Phase 3) |
+    | `REDIS_PASSWORD` | = ค่าที่ใส่ตอน setup Redis (default ตรงกัน) |
+    | `MACHINE_CREATE_PASSWORD` | กำหนดเอง — ใช้ register ตู้ในแอป |
+    | `VITE_API_KEY` | สุ่มเอง strong (API validate ค่านี้) |
+    | `DOCKER_USER` / `DOCKER_PASS` | Docker Hub account + **access token** (hub.docker.com > PAT, Read-only) |
+    | `ELASTIC_APM_SECRET_TOKEN` | token ฝั่ง ELK (`vending-machine-elk`) — **ว่าง** ถ้าไม่ ship เข้า ELK กลาง |
+    | `TURNSTILE_*` / `LOCIZE_*` | Cloudflare / Locize dashboard — ว่าง/`0` ถ้าไม่ใช้ (offline) |
   - หรือแก้มือใน editor ก็ได้
   - pre-stage `-KeepSecrets`? → restore แทน (ข้าม init-secrets): `Copy-Item C:\gitops-secrets-backup\denso.env.secrets C:\gitops-denso\.env.secrets -Force`
 - [ ] เช็ค placeholder ว่าง (ต้องไม่เจอ):
