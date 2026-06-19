@@ -101,7 +101,7 @@
     Test-NetConnection localhost -Port 1433 | Select TcpTestSucceeded             # True
     ```
   - [ ] **DB_HOST = `VENDINGSRV`** (host:1433) ; setup-site ใช้ `-SqlServerInstance localhost\SQLEXPRESS`
-  - ⚠️ `doctor.ps1` เช็ก service `MSSQLSERVER` → false-fail (จริง=`MSSQL$SQLEXPRESS`) ข้ามได้
+  - ✅ `doctor.ps1` detect Express (`MSSQL$SQLEXPRESS`) แล้ว — ไม่ false-fail แล้ว
 - [ ] firewall:
   ```powershell
   New-NetFirewallRule -DisplayName "SQL 1433 in" -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow
@@ -148,11 +148,17 @@
   ```powershell
   nssm start denso-gitops-deploy        # pull image (instant ถ้า warm) + migration + blue-green up
   ```
+- [ ] 🔒 **เปิด HTTPS (จำเป็น!)** — 🖱️ `0-START-HERE.cmd` → เมนู **9** → option **2** (self-signed `denso.local`):
+  ```powershell
+  # หรือ: powershell -File C:\gitops-bootstrap\set-https.ps1 -Brand denso -SelfSigned
+  ```
+  - ⚠️ **ห้ามข้าม** — web.config redirect `http://` → `https://` เสมอ. ไม่เปิด HTTPS = เปิดเว็บแล้ว **ERR_CONNECTION_REFUSED** (redirect ไป 443 ที่ไม่มีใครฟัง)
+  - ตู้/client: import `denso.local.cer` เข้า Trusted Root (set-https พิมพ์คำสั่ง export/import ให้ตอนจบ) ไม่งั้น browser เตือน
 - [ ] verify + โชว์:
   ```powershell
-  pwsh -File .\doctor.ps1 -Brand denso   # FAIL=0
+  pwsh -File .\doctor.ps1 -Brand denso   # FAIL=0 (https binding ต้อง PASS)
   ```
-  → เปิด portal `http://denso.local` → **admin login เข้า dashboard**
+  → เปิด portal **`https://denso.local`** → กดผ่าน warning self-signed → **admin login เข้า dashboard**
 
 ## Phase 5 — ตู้ Android (รายละเอียด: §2)
 - [ ] ลงแอป + set Device Owner → Settings พิมพ์มือ Server URL + API key (ไม่มี QR scanner) → sync → **dispense test 1 รายการ**
