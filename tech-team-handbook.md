@@ -361,7 +361,7 @@ git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
 | `TURNSTILE_ENABLED` | เลือกเอง — **offline = `0`** |
 | `TURNSTILE_SECRET_KEY` / `TURNSTILE_SITE_KEY` | Cloudflare dashboard > Turnstile > widget *(test key ถ้า disable)* |
 | `LOCIZE_API_KEY` / `LOCIZE_PROJECT_ID` | Locize dashboard *(ว่างถ้าไม่ใช้ — แปลภาษา sync ผ่าน API ได้)* |
-| `VITE_API_KEY` | **machine api-key จริง** (`vm_…`) ที่ web ส่งเป็น `x-api-key` ทุก request — admin > Machines > สร้างเครื่อง > View API key. **ไม่ใช่ค่าสุ่ม** (API `ApiKeyGuard` match กับ `machines.api_key_hash` ใน DB). ตั้ง/อัปเดตหลังมีเครื่องแรก |
+| `VITE_API_KEY` | key ของ **web เอง** — web ส่งเป็น `x-api-key` ทุก request แต่ portal routes ใช้ JWT (`APP_GUARD = JwtAuthGuard`) → **API ไม่ validate ค่านี้** (`ApiKeyGuard` อยู่แค่ controller ของตู้). *auto-gen / ค่าอะไรก็ได้* (Enter ผ่าน). **ไม่เกี่ยวกับ** per-machine api-key ของตู้ |
 | `DOCKER_USER` | Docker Hub account ที่ pull private image ได้ *(default pre-filled)* |
 | `DOCKER_PASS` | **Docker Hub access token** (ไม่ใช่ login password) — hub.docker.com > Account Settings > Personal access tokens (Read-only พอ) |
 
