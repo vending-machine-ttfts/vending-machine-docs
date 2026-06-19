@@ -134,7 +134,7 @@
     | `DB_PASSWORD` | sa password (ตั้งตอน Mixed Mode + sa, Phase 3) |
     | `REDIS_PASSWORD` | = ค่าที่ใส่ตอน setup Redis (default ตรงกัน) |
     | `MACHINE_CREATE_PASSWORD` | กำหนดเอง — ใช้ register ตู้ในแอป |
-    | `VITE_API_KEY` | สุ่มเอง strong (API validate ค่านี้) |
+    | `VITE_API_KEY` | **machine api-key จริง** (`vm_…`) — admin > Machines > View API key (ไม่ใช่ค่าสุ่ม; API match กับ DB) |
     | `DOCKER_USER` / `DOCKER_PASS` | Docker Hub account + **access token** (hub.docker.com > PAT, Read-only) |
     | `ELASTIC_APM_SECRET_TOKEN` | token ฝั่ง ELK (`vending-machine-elk`) — **ว่าง** ถ้าไม่ ship เข้า ELK กลาง |
     | `TURNSTILE_*` / `LOCIZE_*` | Cloudflare / Locize dashboard — ว่าง/`0` ถ้าไม่ใช้ (offline) |
