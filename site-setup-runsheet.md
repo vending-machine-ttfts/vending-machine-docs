@@ -159,6 +159,9 @@
   pwsh -File .\doctor.ps1 -Brand denso   # FAIL=0 (https binding ต้อง PASS)
   ```
   → เปิด portal **`https://denso.local`** → กดผ่าน warning self-signed → **admin login เข้า dashboard**
+- [ ] 🔑 **login admin ตั้งต้น** (seed จาก migration — เหมือนกันทุก site):
+  - user: `admin@ttfts.com`  ·  password: `1234`
+  - ⚠️ **เปลี่ยน password ทันทีหลัง login** (default อ่อน + ใช้ร่วมทุก site = เสี่ยง) แล้วสร้าง admin ของ site/ลูกค้าเอง
 
 ## Phase 5 — ตู้ Android (รายละเอียด: §2)
 - [ ] ลงแอป + set Device Owner → Settings พิมพ์มือ Server URL + API key (ไม่มี QR scanner) → sync → **dispense test 1 รายการ**
