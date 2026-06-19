@@ -36,6 +36,7 @@
   ```
 - [ ] **git auth** (เก็บ PAT ใน Windows Credential Manager — ไม่ค้างใน URL/ไฟล์):
   ```powershell
+  git config --global credential.credentialStore dpapi   # ⚠️ ทำงานผ่าน SSH/non-interactive ได้ (default `wincredman` ต้อง session แบบ interactive เท่านั้น)
   git config --global credential.helper manager
   $sec=Read-Host "GitHub PAT" -AsSecureString
   $pat=[Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
@@ -73,7 +74,8 @@
   Test-NetConnection localhost -Port 6379 | Select TcpTestSucceeded  # True
   ```
   - Mailpit: `Test-NetConnection localhost -Port 8025 | Select TcpTestSucceeded` → True (UI: http://localhost:8025)
-- [ ] **SQL Server (Express, instance `SQLEXPRESS` บนเครื่อง `VENDINGSRV`)** — เช็ก + เตรียมให้ container ต่อได้:
+- [ ] **ติดตั้ง SQL Express ก่อน (ถ้ายังไม่มี)** — ⚠️ ต้องรัน **บน console/RDP เท่านั้น ไม่ใช่ SSH** (setup ใช้ DPAPI เข้ารหัส sa password → ผ่าน SSH จะ fail ด้วย `error generating the XML document`). ลงผ่าน SSMS/SSEI ด้วยมือ หรือ `setup-server.ps1 -SaPassword '<sa-pwd>'` (โหลด full package `SQLEXPR_x64_ENU.exe` + ติดตั้งเงียบ + `/UPDATEENABLED=False`). **หมายเหตุ: Phase 2 cmd ไม่ได้ส่ง `-SaPassword` → SQL ไม่ถูกติดตั้งใน Phase 2 — ทำขั้นนี้แยก**
+- [ ] **SQL Server (Express, instance `SQLEXPRESS`)** — เช็ก + เตรียมให้ container ต่อได้:
   ```powershell
   # auto-detect instance (Standard default MSSQLSERVER / Express named) — Denso = localhost\SQLEXPRESS
   $inst = if (Get-Service MSSQLSERVER -EA SilentlyContinue) {'localhost'} else {'localhost\' + ((Get-Service 'MSSQL$*' | Select -First 1).Name -split '\$')[1]}
@@ -118,7 +120,7 @@
   - `setup-site.cmd` = `-Interactive` อยู่แล้ว (กด Enter ผ่าน default ได้); มือ: เติม `-Interactive` เอง
   - 🅿️ **port registry** `C:\gitops-sites.json` (server-local) จดจองให้อัตโนมัติ: denso = explicit ครั้งนี้ → ถูกบันทึก. **site ถัดไปไม่ต้องใส่ port เลย** → `setup-site.ps1 -Brand <ใหม่> -CreateDatabase` จองบล็อกถัดไป (9090.., redisDb ว่างถัดไป) เอง; พอร์ตชน brand อื่น → throw ก่อนสร้าง
   - ⚠️ **ใช้ `powershell.exe` (Windows PS 5.1) ไม่ใช่ `pwsh`** — IIS step ใช้ PSDrive `IIS:\` ซึ่ง pwsh7 โหลดผ่าน WinPSCompatSession แล้ว drive ไม่เกิด → `A drive with the name 'IIS' does not exist`
-  - auto: `-Domain` (=`<brand>.local`), `-DatabaseName` (=`Vending_<Brand>`), `-SqlServerInstance` (detect MSSQLSERVER→`localhost` / Express→`localhost\SQLEXPRESS`) — ใส่ flag ทับได้ถ้าต่าง; repo public → ไม่ต้อง `-GitHubPat`
+  - auto: `-Domain` (=`<brand>.local`), `-DatabaseName` (=`Vending_<Brand>`), `-SqlServerInstance` (detect MSSQLSERVER→`localhost` / Express→`localhost\SQLEXPRESS`) — ใส่ flag ทับได้ถ้าต่าง; ⚠️ repo เป็น **private** → clone ได้เพราะ PAT ถูก cache ใน GCM ตั้งแต่ Phase 1 (ถ้า GCM ไม่มี/รัน headless → ใส่ `-GitHubPat <PAT>`)
   - ⚠️ fail `Database creation failed` + `SSL Provider: certificate chain ... not trusted`? = setup-site เรียก sqlcmd ภายในขาด `-C` (ODBC18 trust self-signed cert). **pull gitops ล่าสุด** (fix แล้ว) หรือ workaround: สร้าง DB เอง แล้วรันซ้ำ **ตัด `-CreateDatabase`** (idempotent — ไม่ clone ใหม่/ไม่ทับ secret):
     ```powershell
     sqlcmd -S localhost -C -Q "IF DB_ID('denso_db') IS NULL CREATE DATABASE [denso_db];"
