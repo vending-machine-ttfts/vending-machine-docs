@@ -117,8 +117,8 @@ flowchart LR
 โหลด/ติดตั้งโปรแกรมล่วงหน้า (รายละเอียดเต็มใน `pre-install-checklist.md` และ `customer-pre-install-guide.md`):
 
 - [ ] **เครื่อง Server:** Docker, Git, NSSM, IIS (+ URL Rewrite + ARR), SQL Server
-- [ ] **เครื่อง Programmer:** Git, Node 24, pnpm, VS Code, Docker Desktop, Android Studio (+ AVD `vmkiosk` 1080×1920@160dpi), SSMS, Postman, scrcpy
-- [ ] **ตู้ Android:** เปิด Developer Options + USB Debugging, เตรียมสาย USB (ส่งข้อมูลได้)
+- [ ] **เครื่อง Programmer:** Git, Node 24, pnpm, VS Code, Docker Desktop, Android Studio **ขั้นต่ำ Ladybug 2024.2.1** (แนะนำ Narwhal 2025.1.1+ เพราะ compileSdk 36) (+ AVD `vmkiosk` 1080×1920@160dpi), SSMS, Postman, scrcpy
+- [ ] **ตู้ Android:** **Android ขั้นต่ำ 7.0** (minSdk 24), เปิด Developer Options + USB Debugging, เตรียมสาย USB (ส่งข้อมูลได้)
 - [ ] ฝั่งลูกค้าส่ง **remote access เข้า server** มาให้ทีมเช็กล่วงหน้า
 - [ ] ทีมเตรียม **USB** ที่มี Docker images (`docker save`) + APK + ตัวติดตั้ง (เผื่อ server ไม่มีเน็ต)
 - [ ] confirm กับ IT ลูกค้า: server ลง SQL Server / database ให้หรือยัง
