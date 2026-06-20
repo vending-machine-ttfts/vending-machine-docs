@@ -240,8 +240,6 @@ powershell -ExecutionPolicy Bypass -File C:\setup-server.ps1 *>&1 | Tee-Object C
 
 > 💡 **ทางลัด:** มีสคริปต์ `setup-server.ps1` (กรณี A ทั้งหมด ยกเว้น SQL Server) ใน repo gitops — ขั้นตอน manual ข้างบนใช้เป็นเอกสารอธิบาย/สำรองตอนสคริปต์ใช้ไม่ได้
 
-**🔌 Offline delta (เฉพาะ air-gap จริง — Denso วันที่ 20 มีเน็ต ข้ามได้):** ถ้า server ไม่มีเน็ตเลย เตรียม installer ทั้งหมด (Docker zip, Git, NSSM, IIS module) ใส่ USB และ `docker load` **เฉพาะ image ของ api + web** — SQL Server ลง native, Redis/Mailpit เป็น NSSM service จึง **ไม่มี** ใน container (ตรงกับ §1.6):
-
 ```powershell
 docker load -i vending-machine-api.tar
 docker load -i vending-machine-web.tar
@@ -604,6 +602,41 @@ scrcpy --video-bit-rate 2M --max-size 960 --max-fps 15 --no-audio
 **ตู้ ↔ ฮาร์ดแวร์:** แอปคุย serial port (`/dev/ttyS*`) ผ่าน JNI เพื่อสั่งมอเตอร์เปิดช่อง — log tag `VMC_SERIAL`
 
 **Web ↔ API ↔ DB:** เหมือนกัน — Web ไม่แตะ DB ตรง ผ่าน API หมด
+
+**Lifecycle ของ 1 request — ตั้งแต่เข้ามาจนตอบกลับ:** ทุก request (ตู้หรือเว็บ) เข้า **IIS ก่อนเสมอ** แล้ว IIS ตัดสินใจจาก path ว่าจะส่งไป API container หรือ Web container
+
+```mermaid
+sequenceDiagram
+    participant C as Client (ตู้/Web)
+    participant IIS as IIS reverse proxy
+    participant W as Web container
+    participant A as API (NestJS)
+    participant G as Guard layer
+    participant DB as SQL Server :1433
+    participant RM as Redis / Mailpit
+
+    Note over C,IIS: ประตูเดียว — ทุก request เข้า IIS ก่อน
+    C->>IIS: HTTPS request (ตู้แนบ api-key + x-machine-user-id)
+    alt path = /api /ws /uploads /public
+        IIS->>A: proxy ไป API container
+        A->>G: ผ่าน guard ก่อนเข้า controller
+        Note over G: ตู้ = ApiKeyGuard เช็ค api-key<br/>+ setCurrentUser(x-machine-user-id)<br/>portal = JwtAuthGuard เช็ค JWT
+        G-->>A: ผ่าน แล้วเข้า controller, use case, repository
+        A->>DB: query / insert (TypeORM)
+        A->>RM: cache / queue / email (ตามงาน)
+        DB-->>A: rows
+        A-->>IIS: JSON response
+    else path อื่น ๆ
+        IIS->>W: serve React/Vite static
+        W-->>IIS: HTML / JS
+        Note over W,A: หลังโหลด เว็บยิง REST กลับมาที่ /api<br/>ผ่าน IIS แล้ววนเข้าฝั่ง API เหมือนบน
+    end
+    IIS-->>C: response
+
+    Note over C,A: Socket.IO (/ws) = ช่อง real-time แยก<br/>API push: สั่งเปิดช่อง, อัปเดต config / theme / translation
+```
+
+> **จุดที่พลาดบ่อย:** ตู้ไม่แนบ `x-machine-user-id` → API ได้ user สุ่มทุก request → pickup error (`IssueSlipUnauthorizedPickup`). ส่วน `x-api-key` ของ **เว็บ** API ไม่ validate (portal ใช้ JWT) — คนละตัวกับ api-key ของตู้
 
 **ตัวอย่างข้อมูลวิ่งตอนเบิกสินค้า (pickup):**
 
