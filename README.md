@@ -15,6 +15,20 @@
 | [pre-install-checklist.md](pre-install-checklist.md) | Checklist โปรแกรมที่ต้องติดตั้งล่วงหน้า — server, เครื่อง dev, ตู้ |
 | [customer-pre-install-guide.md](customer-pre-install-guide.md) | รายการโปรแกรม + วิธีติดตั้งทีละขั้น (Windows) |
 | [tech-team-handbook.md](tech-team-handbook.md) | **คู่มือหลัก** — setup server/ตู้, Tailscale, โครงสร้างระบบ, debug, การคำนวณ stock, deploy/update (เคส offline) |
+| [architecture-diagrams.md](architecture-diagrams.md) | Diagram (Mermaid) — system / API routing+auth / deploy / blue-green / OTA / stock / offline bring-up |
+
+### Developer guidelines (เจาะลึกสำหรับ dev)
+
+ชุดเอกสารอ้างอิงเชิงลึก verify จาก source code จริง — ใช้คู่กับ `tech-team-handbook.md`
+
+| เอกสาร | เนื้อหา |
+|---|---|
+| [01-system-architecture.md](dev-guidelines/01-system-architecture.md) | Web↔API↔DB↔Android, REST + Socket.IO + auth contract, repo map, โครงสร้างโค้ด BE/FE/Kiosk |
+| [02-debugging-runbook.md](dev-guidelines/02-debugging-runbook.md) | แผนที่ log + symptom→ที่ดู playbook (adb logcat, durable file log, FOOTER_LOGO, blue-green) |
+| [03-new-site-onboarding.md](dev-guidelines/03-new-site-onboarding.md) | เพิ่ม site/แบรนด์ใหม่ (white-label) + branding + เคส offline |
+| [04-android-release-ota.md](dev-guidelines/04-android-release-ota.md) | build/sign release APK + OTA publish (เงียบ ผ่าน Web admin) |
+| [05-dev-quickstart-local.md](dev-guidelines/05-dev-quickstart-local.md) | รัน full stack ใน local (DB→API→Web→Android) |
+| [06-stock-domain-model.md](dev-guidelines/06-stock-domain-model.md) | stock model + กฎ sync (`stocks.quantity` = source of truth, merged slots) |
 
 > เอกสารเพิ่มเติมที่จะตามมา: `server-setup-guide.md` (setup server เต็ม), `training-plan.md` (อบรมผู้ใช้งาน), `full-manual/` (คู่มือฟีเจอร์ทุกหน้าจอ)
 
