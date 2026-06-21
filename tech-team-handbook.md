@@ -238,7 +238,13 @@ powershell -ExecutionPolicy Bypass -File C:\setup-server.ps1 *>&1 | Tee-Object C
 
 > ⚠️ **ห้ามสร้าง Docker network หลายอันบน Windows** — HNS/NAT มีจำกัด เคยทำ Docker ค้างทั้งเครื่อง ทุก site ใช้ `gitops_default` ตัวเดียว
 
-> 💡 **ทางลัด:** มีสคริปต์ `setup-server.ps1` (กรณี A ทั้งหมด ยกเว้น SQL Server) ใน repo gitops — ขั้นตอน manual ข้างบนใช้เป็นเอกสารอธิบาย/สำรองตอนสคริปต์ใช้ไม่ได้
+> 💡 **ทางลัด (เมนู `0-START-HERE.cmd`):** ดูแผนภาพรวมทั้งหมดที่ [`SETUP-FLOW.md`](https://github.com/vending-machine-ttfts/vending-machine-gitops/blob/main/SETUP-FLOW.md) (mermaid). เมนูหลัก:
+> - `1)` Base tooling = `setup-server.ps1` (Docker/Git/NSSM/IIS — **ไม่รวม SQL**)
+> - `D)` SQL Server = `setup-sql.ps1` — สแกน instance ที่มี (โชว์ port), เลือกถ้า >1, ลง Express ถ้าไม่มี, ตั้ง static TCP 1433 + firewall ให้อัตโนมัติ (รันบน **console** เท่านั้น — install ต้อง DPAPI)
+> - `2)` Redis+Mailpit, `3)` New site, `4)` Fill secrets, `5)` Start deploy, `6)` doctor, `9)` HTTPS
+> - `F)` Fix/redeploy = `fix-site.ps1` — auto-fix `.env.secrets` (DB_HOST host-only / REDIS_DB เป็นเลข) + force blue-green redeploy
+>
+> ขั้นตอน manual ข้างล่างใช้เป็นเอกสารอธิบาย/สำรองตอนสคริปต์ใช้ไม่ได้
 
 ```powershell
 docker load -i vending-machine-api.tar
@@ -303,6 +309,16 @@ git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
 > | limit | ไม่มี | DB ≤10GB, RAM 1GB, 1 socket — site เดียวพอ |
 > | sqlcmd (ODBC18) | ใส่ `-C` (trust self-signed cert) | `-C` เหมือนกัน |
 >
+> **TCP + port + หลาย instance:**
+> - container ต่อ host SQL ผ่าน **TCP เท่านั้น** (shared memory/named pipe ข้าม container ไม่ได้) → TCP ต้อง Enabled + service running ถาวร
+> - 1 เครื่องมี instance ที่ฟัง **1433 ได้ตัวเดียว** (DATABASE_URL hardcode `:1433` + ไม่ใส่ชื่อ instance). มีหลาย instance → เลือก 1 ตัวเป็น "API instance" บน static 1433 (เมนู D ถามให้), ที่เหลือใช้ port อื่น (API ต่อไม่ได้)
+> - **หลาย brand บนเครื่องเดียว = instance เดียว + หลาย database** (`Vending_<Brand>`) ไม่ใช่หลาย instance
+> - **connection = ชื่อเครื่อง ไม่ใช่ localhost** — จากใน container `localhost` = ตัว container เอง → ต้อง `TEST04:1433` (ชื่อ host). จาก host เอง (sqlcmd) ใช้ `localhost,1433` ได้
+> - ดู instance ไหนเปิด port อะไร (registry, ไม่ต้อง sqlcmd):
+> ```powershell
+> (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL').PSObject.Properties | Where-Object Name -notmatch '^PS' | ForEach-Object { $id=$_.Value; $t=Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$id\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" -EA SilentlyContinue; "{0}: static={1} dynamic={2}" -f $_.Name,$t.TcpPort,$t.TcpDynamicPorts }
+> ```
+>
 > **ถ้าเป็น Express — ทำ 3 ขั้นก่อน (instance `MSSQL$SQLEXPRESS`):**
 >
 > **(1) เปิด Mixed Mode + เปิด sa + ตั้ง password** (รันใน sqlcmd `-E` หรือ SSMS New Query ที่ต่อ Windows auth):
@@ -337,7 +353,11 @@ git clone https://<PAT>@<gitops-repo-url> C:\gitops-bootstrap
 6. **ตั้ง IIS site** + binding 80/443 + SNI + App Pool = **No Managed Code**
 7. **Start service** → verify
 
-> ⚠️ `DATABASE_URL` ใน template ต้องชี้ **ชื่อ host จริงของ server ใหม่** (เช่น `DENSO-SVR:1433`) — ห้ามใช้ `localhost` เพราะ API อยู่ใน container
+> ⚠️ `DATABASE_URL` ใน template ต้องชี้ **ชื่อ host จริงของ server ใหม่** (เช่น `DENSO-SVR:1433`) — ห้ามใช้ `localhost` เพราะ API อยู่ใน container. `DB_HOST` = **host ล้วน** (`DENSO-SVR`) ห้ามใส่ `\SQLEXPRESS` (backslash ทำ DATABASE_URL พัง = "Invalid URL")
+>
+> ⚠️ **แก้ `.env.secrets` ภายหลังแล้ว "ไม่ขึ้น":** deploy loop gate ที่ **compose hash** — แก้ env-file ไม่ trigger recreate → container ค้าง env เก่า. ต้อง force-recreate: เมนู **`F)` → Redeploy** (หรือ `.\fix-site.ps1 -Brand <b> -Redeploy`)
+>
+> ⚠️ **`COMPOSE_PROJECT_PREFIX` ต้องเป็นตัวเล็ก** — ตัวใหญ่ (เช่น `Denso`) ทำ `docker compose -p Denso-blue` ฟ้อง "invalid project name" → deploy exit 1 ทุก tick (deploy.ps1 `.ToLower()` ให้แล้ว แต่ registry env ที่ตั้งตอน setup-site ก็ควรเป็นตัวเล็ก)
 
 #### ตาราง `.env.secrets` — ที่มาแต่ละค่า
 
