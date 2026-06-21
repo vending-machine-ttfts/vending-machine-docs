@@ -246,6 +246,74 @@ powershell -ExecutionPolicy Bypass -File C:\setup-server.ps1 *>&1 | Tee-Object C
 >
 > ขั้นตอน manual ข้างล่างใช้เป็นเอกสารอธิบาย/สำรองตอนสคริปต์ใช้ไม่ได้
 
+#### 📊 ภาพรวม flow (setup + runtime)
+
+ลำดับการติดตั้ง (server ครั้งเดียว → site ต่อ brand):
+
+```mermaid
+flowchart TD
+    subgraph SERVER["ครั้งเดียวต่อเครื่อง (server-level)"]
+        A["1) Base tooling<br/>Docker · Git · NSSM · IIS"]
+        D["D) SQL Server<br/>scan → pick / install Express → static TCP 1433"]
+        R["2) Redis + Mailpit"]
+        T["8) Set GitHub token (PAT)"]
+        A --> D --> R --> T
+    end
+    subgraph SITE["ต่อ brand (site-level)"]
+        S3["3) New site<br/>clone gitops-&lt;brand&gt; · ports · IIS · NSSM deploy svc<br/>(prefix = brand, lowercase)"]
+        S4["4) Fill secrets<br/>.env.secrets (Enter เก็บค่าเดิม)"]
+        S9["9) HTTPS"]
+        S5["5) Start deploy"]
+        S3 --> S4 --> S9 --> S5
+    end
+    T --> S3
+    S5 --> RUN["deploy loop"]
+    H["6) doctor"]
+    F["F) Fix / redeploy"]
+    RUN -.-> H -.-> F -.-> RUN
+```
+
+การตัดสินใจ SQL (เมนู D):
+
+```mermaid
+flowchart TD
+    SCAN["scan: Get-Service MSSQLSERVER, MSSQL$*"] --> Q{พบ instance?}
+    Q -->|0| INST["install SQL Express<br/>(ขอ sa password, console เท่านั้น)"]
+    Q -->|1| ONE["ใช้ตัวนั้น"]
+    Q -->|">1"| PICK["ให้เลือก"]
+    INST --> TCP["static TCP 1433 + firewall"]
+    ONE --> TCP
+    PICK --> TCP
+    TCP --> OUT["DB_HOST = ชื่อเครื่อง (host ล้วน)"]
+```
+
+Runtime — deploy loop + architecture:
+
+```mermaid
+flowchart TD
+    subgraph LOOP["deploy.ps1 (NSSM service, ทุก ~60s)"]
+        G["git pull (fail-fast — ไม่ค้างถ้าไม่มี cred)"]
+        REN["render .env.api/.web + compose (prefix .ToLower())"]
+        HASH{compose hash เปลี่ยน?}
+        DEP["blue-green: start slot สำรอง → health → สลับ IIS → stop slot เก่า"]
+        SKIP["skip + sleep 60s"]
+        G --> REN --> HASH
+        HASH -->|yes| DEP
+        HASH -->|no| SKIP
+    end
+    subgraph HOST["host services (native)"]
+        SQL[("SQL :1433")]
+        RED[("Redis :6379")]
+        MAIL[("Mailpit :1025")]
+    end
+    IIS["IIS + ARR :80/:443"] --> ACTIVE["active slot (.active-slot)"]
+    ACTIVE --> BLUE["blue 9080/9081"]
+    ACTIVE -.-> GREEN["green 9082/9083"]
+    BLUE --> SQL & RED & MAIL
+    GREEN --> SQL & RED & MAIL
+```
+
+
 ```powershell
 docker load -i vending-machine-api.tar
 docker load -i vending-machine-web.tar
