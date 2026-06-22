@@ -83,19 +83,23 @@ flowchart LR
 sequenceDiagram
     autonumber
     participant Dev as Developer
-    participant GH as GitHub
+    participant GH as GitHub · app repo<br/>(api / web)
     participant CI as GitHub Actions<br/>(windows-container-build.yml)
+    participant GO as gitops repo
     participant HUB as Docker Hub<br/>(<docker-user>/*)
     participant SRV as Windows Server<br/>(deploy.ps1 / NSSM)
     participant IIS as IIS + ARR
 
-    Dev->>GH: push (api / web)
+    Dev->>GH: push main (api / web)
     GH->>CI: trigger build
-    CI->>CI: docker build -f Dockerfile.windows<br/>(nanoserver:ltsc2025)
-    CI->>HUB: push image :tag
-    Dev->>GH: bump image tag ใน gitops compose
+    CI->>CI: Trivy fs gate — deps vuln<br/>(HIGH/CRITICAL, --ignore-unfixed)
+    CI->>CI: docker build -f Dockerfile.windows<br/>(nanoserver) :version-commit
+    CI->>CI: Trivy image gate — os + library vuln
+    Note over CI: เจอ HIGH/CRITICAL = build fail หยุด ไม่ push
+    CI->>HUB: docker push image :version-commit
+    CI->>GO: bump tag ใน docker-compose.template.yml<br/>commit + push (github-actions[bot])
     Note over SRV: deploy.ps1 loop ทุก 60s
-    SRV->>GH: git pull (gitops)
+    SRV->>GO: git pull (gitops repo)
     SRV->>SRV: render compose+env → MD5 hash
     alt hash เปลี่ยน
         SRV->>HUB: docker compose pull
@@ -107,6 +111,8 @@ sequenceDiagram
 ```
 
 - **prod = Windows container** (CI build จาก `Dockerfile.windows`). gitops network = `nat` driver
+- **Trivy gate ×2** ใน CI: `trivy fs` (deps) + `trivy image` (os/library) severity HIGH/CRITICAL `--ignore-unfixed` `--exit-code 1` → เจอช่องโหว่ = build fail ไม่ push (มี SARIF artifact แบบ report-only แยกด้วย)
+- **CI push tag เข้า gitops repo เอง** — `github-actions[bot]` แก้ `docker-compose.template.yml` แล้ว commit+push ไม่ต้อง bump มือ · image tag = `<version>-<commit>` (จาก `package.json` + short SHA)
 - deploy ทำงานเมื่อ **compose-hash เปลี่ยน** (มาจาก git pull). offline (ลูกค้า <customer> หลังส่งมอบ) → git/pull fail = idle ไม่กระทบ service ที่รันอยู่
 
 ---

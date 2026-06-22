@@ -4,6 +4,10 @@
 
 ระบบประกอบด้วย 5 ส่วน: **Web Admin** (จัดการระบบ) · **API** (backend) · **Database** · **ตู้ Android** (หน้าตู้ kiosk) · **Updater** (อัปเดตแอปตู้)
 
+> 🗺️ **เริ่มที่ภาพรวมแบบ interactive:** เปิด [`system-overview.html`](system-overview.html) ในเบราว์เซอร์ (ดับเบิลคลิก — ไม่ต้องลง plugin) — แผนที่หน้าเดียวรวม tech stack → architecture → git pipeline → setup server/เพิ่ม site → OTA → stock/offline · diagram zoom/pan ได้ · สลับธีมได้ · คลิกส่วนประกอบดูรายละเอียด
+>
+> 🖥️ **สไลด์นำเสนอ (14 หน้า, 16:9):** เปิด [`system-flow-deck.html`](system-flow-deck.html) — deck ส่งมอบ/อบรม · ← → / Space เลื่อน · `F` เต็มจอ · `N` speaker notes (สร้างจาก Claude Design)
+
 ---
 
 ## เอกสารในชุดนี้
@@ -29,6 +33,8 @@
 | [04-android-release-ota.md](dev-guidelines/04-android-release-ota.md) | build/sign release APK + OTA publish (เงียบ ผ่าน Web admin) |
 | [05-dev-quickstart-local.md](dev-guidelines/05-dev-quickstart-local.md) | รัน full stack ใน local (DB→API→Web→Android) |
 | [06-stock-domain-model.md](dev-guidelines/06-stock-domain-model.md) | stock model + กฎ sync (`stocks.quantity` = source of truth, merged slots) |
+| [07-offline-deploy-update.md](dev-guidelines/07-offline-deploy-update.md) | **cheat-sheet** อัปเดต web/api/kotlin แบบ offline (docker save/load, gitops redeploy, OTA APK) |
+| [08-api-architecture-ddd.md](dev-guidelines/08-api-architecture-ddd.md) | **API ลงลึก** — DDD tactical + Clean/Hexagonal: 4 ชั้น, dependency rule, VO/port/adapter/use-case (โค้ดจริง), recipe เพิ่ม feature, do/don't |
 
 > เอกสารเพิ่มเติมที่จะตามมา: `server-setup-guide.md` (setup server เต็ม), `training-plan.md` (อบรมผู้ใช้งาน), `full-manual/` (คู่มือฟีเจอร์ทุกหน้าจอ)
 

@@ -51,6 +51,30 @@
 - Kiosk มี **Room (SQLite local)** เป็น offline store ของตัวเอง แล้ว sync ขึ้น API — ไม่ได้ต่อ SQL Server ตรง
 - Web ไม่ได้คุยกับ kiosk โดยตรง ทุกอย่างผ่าน API เป็นตัวกลาง (รวมถึง remote command → kiosk ที่ส่งผ่าน Socket.IO room)
 
+### Tech Stack (at a glance)
+
+สรุปสแต็กหลักของ 3 แอป — รายละเอียด folder + pattern อยู่ §7, source of truth คือ `AGENTS.md` ของแต่ละ repo
+
+| Layer | Repo | Core | Architecture |
+|---|---|---|---|
+| **API** (backend) | `vending-machine-api` | NestJS 11 + Fastify · TypeScript (ESM) | Clean / Hexagonal + **DDD** (feature module 3 ชั้น: application / domain / infrastructure) |
+| **Web** (admin) | `vending-machine-web` | React 18 + **Vite** 7 SPA · TypeScript strict · pnpm | feature-based SPA |
+| **Kiosk** (Android) | `vending-machine-kotlin` | Kotlin 2.1 · Jetpack Compose | Clean Arch: UI → ViewModel → Repository |
+
+**Web — React ecosystem** (ตาม diagram):
+
+| ด้าน | ไลบรารี |
+|---|---|
+| API / server state | TanStack **React Query** (+ axios `apiClient`, auto refresh-token) |
+| Routing | TanStack Router (file-based, type-safe) |
+| Form + validate | **React Hook Form** + **Zod** (map error → field ผ่าน `lib/form-errors.ts`) |
+| UI component | **shadcn/ui** (Radix primitives) |
+| Style | **Tailwind** CSS v4 (Biome auto-sort classes) |
+| Local state / i18n | Jotai (UI) · React Context (auth) · i18next (en/th/ja) |
+
+> API stack เพิ่มเติม: TypeORM + MSSQL 2017 · Redis · Socket.IO · JWT + API Key · Pino · i18n.
+> Kiosk stack เพิ่มเติม: Hilt · Room (SQLite) · Retrofit + OkHttp · Socket.IO · USB Serial (JNI).
+
 ---
 
 ## 2. ช่องทางสื่อสาร (Communication Channels)
