@@ -820,8 +820,6 @@ erDiagram
 ```
 
 > สต็อกจริงต่อช่องอยู่ที่ `stocks.quantity` (คนละ table กับ `slots`). ช่อง (`slots`) **ไม่มี** `machine_id` — **filter ตามเครื่องต้อง join ขึ้นไปผ่าน `containers`** (`machines → containers → trays → slots → stocks`). เกณฑ์ต่ำสุดแขวนที่ `machine_products`, ประวัติ IN/OUT ที่ `stock_movements`
->
-> ⚠️ **สินค้าผูกกับช่องผ่าน `slot_product_bindings` (status='active') — ไม่ใช่ `slots.product_id`**. `slots.product_id` ยังถูกเขียนอยู่ก็จริง แต่ **ไม่ใช่ source of truth** และ drift จาก binding ได้ (วัดจาก prod จริง: ~27% ของ slot ที่มี active binding มี `product_id` ไม่ตรง หรือเป็น NULL → join ผ่าน `product_id` จะ **mis-attribute สินค้าผิด หรือ drop slot ที่ product_id=NULL**). read path จริงของแอป join ผ่าน binding เสมอ
 
 | ตาราง/ฟิลด์ | เก็บอะไร |
 |---|---|
