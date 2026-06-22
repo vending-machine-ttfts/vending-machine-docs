@@ -535,17 +535,33 @@ API รัน **TypeORM migration อัตโนมัติตอน container
 
 > เหตุผลที่ Tailscale ต้องมา **ก่อน** Set Device Owner: หลังตั้ง Device Owner ตู้จะ lock task ต้อง whitelist `com.tailscale.ipn` ไว้ก่อน ไม่งั้นเปิด Tailscale ไม่ได้
 
+> 🖱️ **ทางลัดจาก server (`0-START-HERE` เมนู `A` + `K`)** — ไม่ต้องพิมพ์ adb เอง:
+> - **`A) Kiosk tools`** → ลง `adb` + `scrcpy` บน server (ครั้งเดียวต่อ server)
+> - **`K) Kiosk provision`** → sub-menu: `1)` Connect (adb connect ip:5555) · `G)` โหลด APK (Tailscale/Vending จาก Drive/URL) · `3)` ติดตั้ง+เปิด Tailscale + เด้ง scrcpy · `5)` Set Device Owner · `6)` Grant overlay · `S)` เปิด scrcpy ดู/คุมจอ · `2)` Status (device-owner/package/overlay/tailscale ip)
+> - phone-side (Developer Options / USB / Wireless debugging ใน §2.1) **ยังต้องทำบนจอตู้เอง** — automate ไม่ได้
+
 ### 2.1 เตรียมเครื่อง (Developer Options + ADB WiFi)
 
+**บนหน้าจอตู้ (ทำเองครั้งเดียวต่อเครื่อง — automate ไม่ได้):**
+
+1. **เปิด Developer Options:** ตั้งค่า (Settings) > เกี่ยวกับแท็บเล็ต (About tablet) > แตะ **"หมายเลขบิลด์ (Build number)" 7 ครั้ง** ติดๆ จนขึ้น "You are now a developer"
+2. **เปิด USB debugging:** ตั้งค่า > ระบบ (System) > ตัวเลือกสำหรับนักพัฒนา (Developer options) > เปิดสวิตช์ **USB debugging**
+3. **เปิด ADB over WiFi** (เลือกตามรุ่น Android):
+   - **Android 11+:** Developer options > เปิด **Wireless debugging** → จดเลข `IP:port` + ใช้ **pairing code** ครั้งแรก (`adb pair <ip:port>`)
+   - **Android 9-10:** ไม่มี Wireless debugging → **ต้องเสียบ USB ก่อน** แล้วรัน `adb tcpip 5555` (ขั้นล่าง)
+4. **เสียบ USB** ตู้ → server → จอตู้เด้ง **"Allow USB debugging?"** → ติ๊ก **"Always allow from this computer"** > OK
+
+**จาก server** (เมนู `A` ลง `adb`/`scrcpy` ให้แล้ว — ดูทางลัดด้านบน):
+
 ```bash
-# บนหน้าจอตู้: ตั้งค่า > เกี่ยวกับ > กด "หมายเลขบิลด์" 7 ครั้ง → เปิด USB Debugging
-adb devices                         # เห็นเครื่อง
-adb tcpip 5555                      # เปิด ADB over WiFi
+adb devices                         # เห็นเครื่อง (ต้องติ๊ก Allow บนจอตู้ก่อน)
+adb tcpip 5555                      # เปิด ADB over WiFi (จำเป็นสำหรับ Android 9-10)
 adb shell ip addr show wlan0 | grep "inet "   # ดู IP เครื่อง เช่น 192.168.100.70
 adb connect 192.168.100.70:5555     # ต่อผ่าน WiFi (ถอดสาย USB ได้)
 ```
 
 > Android 9 ไม่มี Wireless Debugging ในเมนู — **ต้องต่อ USB ก่อนอย่างน้อย 1 ครั้ง** เพื่อรัน `adb tcpip 5555`
+> `adb tcpip 5555` reset หลัง reboot ถ้าไม่ persist — วิธี persist อยู่ใน §2.6 / `REMOTE_TAILSCALE_SETUP.md`
 
 > 🖥️ **bootstrap จาก server เลย (ไม่ต้องมี laptop):** server มี `0-START-HERE` → เมนู **`A) Kiosk tools`** ลง `adb` (`C:\platform-tools`) + `scrcpy` (`C:\scrcpy`) ให้. ต่อ USB ตู้เข้า server ครั้งเดียว → `adb tcpip 5555` → ถอด USB → `adb connect <kiosk-ip>:5555` ทำต่อผ่าน LAN ได้
 >
@@ -569,7 +585,10 @@ adb install tailscale.apk
 # 3. เปิดแอป Tailscale → Sign in (account เดียวกัน) → Connect
 #    Android = GUI ไม่มี CLI: ใช้ pre-auth key (admin console > Settings > Keys) แล้ว "Sign in with auth key"
 #    ไม่ต้องยืนหน้าตู้: รัน scrcpy จาก server แล้ว tap/วาง key บนหน้าจอ mirror ได้
-adb shell am start -n com.tailscale.ipn/.IPNActivity   # เปิดแอป (auth ยังต้อง tap/วาง key)
+# เปิดแอป Tailscale (auth ยังต้อง tap/วาง key). อย่าใช้ `am start -n .../.IPNActivity` -- รุ่นใหม่
+# ถอด IPNActivity แล้ว (Activity does not exist) → launch by package ด้วย monkey:
+adb shell monkey -p com.tailscale.ipn -c android.intent.category.LAUNCHER 1
+# แล้วเปิด scrcpy (หรือเมนู K -> S) → tap "Sign in with auth key" → วาง pre-auth key (Ctrl+V)
 
 # 4. ได้ Tailscale IP รูปแบบ 100.x.x.x — จดไว้ (ดูที่หน้าจอ หรือ admin console)
 adb shell ip addr show tailscale0 | grep inet
