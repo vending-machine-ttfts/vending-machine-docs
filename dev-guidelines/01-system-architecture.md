@@ -32,7 +32,7 @@
    └───────┬───────────────────────────┬───────────────────────┬───────────┘
            │                           │                       │
    ┌───────▼────────┐         ┌────────▼───────┐       ┌───────▼────────┐
-   │ SQL Server 2022│         │  Redis (cache) │       │  Mailpit (dev) │
+   │ SQL Server 2017│         │  Redis (cache) │       │  Mailpit (dev) │
    │ TypeORM 0.3.x  │         │  ioredis       │       │  SMTP 1025/8025│
    │ snake_case     │         │                │       │                │
    └────────────────┘         └────────────────┘       └────────────────┘
@@ -235,7 +235,7 @@ API ─ บันทึก issue_slip_pickups + stock_movements → SQL Server
 
 ### 7.1 Backend — `vending-machine-api`
 
-**Stack:** NestJS 11 + Fastify · TypeScript (ESM) · TypeORM + MSSQL 2022 · Redis · Socket.IO · JWT + API Key · Pino · i18n (en/th/ja)
+**Stack:** NestJS 11 + Fastify · TypeScript (ESM) · TypeORM + MSSQL 2017 (prod; ver per customer) · Redis · Socket.IO · JWT + API Key · Pino · i18n (en/th/ja)
 
 **Clean / Hexagonal architecture** — แยกตาม feature module, แต่ละ module มี 3 ชั้น:
 
