@@ -1,7 +1,7 @@
 # คู่มือ Training — Setup & Operate ระบบ Vending Machine (สำหรับทีมเทคนิค)
 
 > **เวอร์ชันเอกสาร:** 1.0 — 2026-06-13
-> **อ้างอิงระบบ:** Android `0.0.43` (versionCode 49), API = NestJS (node:24), Web = React/Vite, DB = SQL Server 2017 (native บน Windows)
+> **อ้างอิงระบบ:** Android `0.0.43` (versionCode 49), API = NestJS (node:24), Web = React/Vite, DB = SQL Server 2017 (native บน Windows; เวอร์ชันตามที่ลูกค้าลง)
 > **ที่มา:** การประชุมวางแผน training (มิ.ย. 2026)
 
 เอกสารนี้สำหรับ **ทีมเทคนิคของลูกค้า** (โปรแกรมเมอร์ + น้องใหม่) ที่จะดูแลระบบ Vending Machine แบบ **Offline** (server local ของลูกค้าเอง) ให้สามารถ **ติดตั้ง / ดูแล / debug / deploy** ได้ด้วยตนเอง — **ไม่ได้สอน coding ลึก** แต่ให้รู้ว่าระบบประกอบด้วยอะไร ใช้เครื่องมืออะไร ข้อมูลวิ่งผ่านช่องทางไหน และต้องทำอะไรเมื่อมีปัญหา
@@ -65,7 +65,7 @@ flowchart TB
         mail["Mailpit<br/>อีเมล"]
     end
 
-    kiosk -- "REST + Socket.IO<br/>header: x-machine-user-id, api-key" --> iis
+    kiosk -- "REST + Socket.IO<br/>header: x-machine-user-id, x-api-key" --> iis
     webuser -- "HTTPS" --> iis
     iis -- "/api /ws /uploads /public" --> api
     iis -- "/*" --> webc
@@ -96,7 +96,7 @@ flowchart LR
 **จุดสำคัญ:**
 - ตู้ Android คุยกับ **API** เท่านั้น (ไม่แตะ DB ตรง) ผ่าน 2 ช่องทาง: **REST** (ดึง/ส่งข้อมูล) + **Socket.IO** (real-time push เช่น สั่งเปิดช่อง, อัปเดต config)
 - Web ก็คุยกับ API เท่านั้น เช่นกัน → **API เป็นประตูเดียวที่แตะ DB**
-- ทุก request จากตู้แนบ header `x-machine-user-id` (ระบุ user ที่กำลังทำรายการ) + `api-key` (ระบุว่าเป็นเครื่องไหน)
+- ทุก request จากตู้แนบ header `x-machine-user-id` (ระบุ user ที่กำลังทำรายการ) + `x-api-key` (ระบุว่าเป็นเครื่องไหน)
 
 ### 0.3 บริบท Offline (เคส Denso) — ต่างจาก Cloud ตรงไหน
 
@@ -136,7 +136,7 @@ flowchart LR
 | **ARR** | โมดูล IIS ที่ทำ reverse proxy |
 | **Device Owner** | สิทธิ์สูงสุดบน Android → lock เป็น kiosk + silent install |
 | **api-key** | กุญแจประจำเครื่องตู้ (สร้างตอนเพิ่ม Machine ในเว็บ) |
-| **Slot / slot_products** | ช่องในตู้ + ตารางเก็บสต็อกต่อช่อง |
+| **Slot / Stock** | ช่องในตู้ (`slots`) + สต็อกต่อช่อง (server: `stocks.quantity`; ตู้ Room: `slot_products.stock`) |
 
 ---
 
@@ -160,7 +160,7 @@ repo `vending-machine-gitops` มีสคริปต์ครอบงาน s
 |---|---|---|
 | `setup-server.ps1` | กรณี A: Docker + Git + NSSM + IIS/ARR (ยกเว้น SQL Server) | server ใหม่ ครั้งเดียว |
 | `setup-windows-services.ps1` | ลง Redis + Mailpit (เป็น NSSM service) | server ใหม่ ครั้งเดียว |
-| `init-secrets.ps1` | สร้าง `.env.secrets` แบบ interactive (gen JWT ให้, มาสก์ค่า, มี guideline ทุกฟิลด์) | ก่อนสร้าง site |
+| `init-secrets.ps1` | สร้าง `.env.secrets` แบบ interactive (gen JWT ให้, แสดงค่าที่พิมพ์—ไม่มาสก์ ระวังตอน screen-share, มี guideline ทุกฟิลด์) | **หลัง** `setup-site.ps1` (เติมค่าใน stub) |
 | **`setup-site.ps1`** | **กรณี B ทั้งก้อน:** clone + secret stubs + dirs + IIS site/pool + NSSM deploy service + DB (optional) — **idempotent รันซ้ำได้** | ลูกค้า/เครื่องใหม่ |
 | `doctor.ps1` | health check แบบอ่านอย่างเดียว (server + per-brand), exit 0=ผ่าน 1=มี FAIL | หลัง setup / ทุกครั้งที่สงสัย |
 | `deploy.ps1` | loop deploy (git pull → render compose → blue-green) | รันเป็น NSSM service auto |
@@ -183,10 +183,12 @@ cd C:\gitops-bootstrap
 pwsh -File .\setup-windows-services.ps1 -RedisPassword "<รหัส>"   # Redis + Mailpit (NSSM)
 
 # ── ทุกลูกค้า/เครื่องใหม่ (กรณี B) ──
-pwsh -File .\init-secrets.ps1 -Brand denso -Domain denso.local
+# setup-site ก่อน (clone + สร้าง .env.secrets stub) แล้ว init-secrets ค่อยเติมค่า
+# (init-secrets จะ throw ถ้า gitops dir ยังไม่มี — ห้ามสลับลำดับ)
 pwsh -File .\setup-site.ps1 -Brand denso -Domain denso.local `
   -BlueWebPort 9080 -BlueApiPort 9081 -GreenWebPort 9082 -GreenApiPort 9083 `
   -RedisDb 2 -GitHubPat <PAT> -CreateDatabase
+pwsh -File .\init-secrets.ps1 -Brand denso -Domain denso.local
 
 # ── เช็คผล ──
 pwsh -File .\doctor.ps1 -Brand denso     # ต้องไม่มี FAIL
@@ -694,7 +696,7 @@ scrcpy --video-bit-rate 2M --max-size 960 --max-fps 15 --no-audio
 **ตู้ → API → DB:**
 - ตู้ดึงสินค้า/สต็อก/issue slip ผ่าน **REST** (Retrofit) — base URL = endpoint ที่ตั้งใน Settings
 - งาน real-time (สั่งเปิดช่อง, อัปเดต config/translation/theme) มาทาง **Socket.IO**
-- ทุก request แนบ `x-machine-user-id` (user ที่ทำรายการ) + `api-key` (เครื่องไหน)
+- ทุก request แนบ `x-machine-user-id` (user ที่ทำรายการ) + `x-api-key` (เครื่องไหน)
   - **ถ้าไม่มี `x-machine-user-id`** → API จะมองเป็น user สุ่มทุกครั้ง → pickup จะ error (`IssueSlipUnauthorizedPickup`)
 
 **ตู้ ↔ ฮาร์ดแวร์:** แอปคุย serial port (`/dev/ttyS*`) ผ่าน JNI เพื่อสั่งมอเตอร์เปิดช่อง — log tag `VMC_SERIAL`
@@ -714,7 +716,7 @@ sequenceDiagram
     participant RM as Redis / Mailpit
 
     Note over C,IIS: ประตูเดียว — ทุก request เข้า IIS ก่อน
-    C->>IIS: HTTPS request (ตู้แนบ api-key + x-machine-user-id)
+    C->>IIS: HTTPS request (ตู้แนบ x-api-key + x-machine-user-id)
     alt path = /api /ws /uploads /public
         IIS->>A: proxy ไป API container
         A->>G: ผ่าน guard ก่อนเข้า controller
@@ -747,14 +749,14 @@ sequenceDiagram
     participant D as SQL Server
 
     U->>K: login PIN + เลือกสินค้า + ยืนยัน
-    K->>A: POST /pickup (header: x-machine-user-id, api-key)
-    A->>D: ตัด stock + บันทึก transaction (amount ติดลบ)
+    K->>H: สั่งเปิดช่อง (log VMC_SERIAL)
+    H-->>K: มอเตอร์จ่ายของสำเร็จ (0x02)
+    K->>K: saveTransaction + อัปเดต picked_quantity (local)
+    K->>A: POST /pickup (header: x-machine-user-id, x-api-key)
+    A->>D: ลด stocks.quantity + บันทึก stock_movements
     D-->>A: ok
     A-->>K: 200 ok
-    K->>H: สั่งเปิดช่อง (log VMC_SERIAL)
-    H-->>K: มอเตอร์จ่ายของสำเร็จ
-    K->>K: อัปเดต picked_quantity (local)
-    Note over K,A: ถ้า API ล้มเหลว (offline) → queue PendingOperation<br/>แล้ว replay รอบ sync ถัดไป (สูงสุด 10 ครั้ง)
+    Note over K,A: ตู้เปิดช่อง+จ่ายของ "ก่อน" เรียก API → ถ้า API ล้มเหลว (offline)<br/>queue PendingOperation แล้ว replay รอบ sync ถัดไป (สูงสุด 10 ครั้ง)
 ```
 
 ### 4.2 เครื่องมือ Debug — ตัวไหนใช้เมื่อไหร่
@@ -764,7 +766,7 @@ sequenceDiagram
 | **adb logcat** | log ของแอปตู้ (real-time) | ตู้ค้าง, ช่องไม่เปิด, sync เพี้ยน |
 | `adb logcat \| grep VMC_SERIAL` | คำสั่ง/ผลการสั่งฮาร์ดแวร์ | ดีบักการจ่ายของ |
 | **scrcpy** | ดู/คุมหน้าจอตู้ (ผ่าน Tailscale) | ดูอาการหน้าจอจากระยะไกล |
-| **SSMS / DBeaver** | ข้อมูลใน SQL Server | สงสัยข้อมูล stock/transaction ผิด |
+| **SSMS / DBeaver** | ข้อมูลใน SQL Server | สงสัยข้อมูล stock / stock_movements ผิด |
 | **Postman** | ยิงทดสอบ API ตรง ๆ | แยกว่าปัญหาอยู่ที่ API หรือตู้ |
 | **Web: Machine Monitor** | สถานะตู้ online/offline real-time | ตู้หลุดไหม |
 | **Web: Connection History** | ประวัติตู้หลุด-ต่อ (กรองวัน) | ตู้หลุดบ่อยช่วงไหน |
@@ -798,36 +800,60 @@ sequenceDiagram
 
 ## 5. ข้อมูล & การคำนวณ Stock
 
-### 5.1 ตารางที่เกี่ยวกับ Stock
+> **มี 2 schema คนละชุด — อย่าสับสน:**
+> - **เซิร์ฟเวอร์ (SQL Server / API DB)** — ความจริงกลาง ดูด้วย SSMS/DBeaver. column เป็น snake_case (API ใช้ `SnakeNamingStrategy`). SQL ในข้อ 5.6 ใช้ชื่อชุดนี้
+> - **ตู้ Android (Room/SQLite)** — สำเนา local บนตู้ ชื่อ table/column คนละชุด (`slot_products.stock`, `transactions.amount`, `picked_quantity`) ดูได้เฉพาะผ่าน adb บนตู้ — **ไม่มีใน SQL Server**
+
+### 5.1 ตารางที่เกี่ยวกับ Stock (SQL Server)
+
+```mermaid
+erDiagram
+    machines        ||--o{ containers            : "machine_id"
+    containers      ||--o{ trays                 : "container_id"
+    trays           ||--o{ slots                 : "tray_id"
+    slots           ||--o| stocks                : "slot_id (สต็อกจริง = quantity)"
+    slots           ||--o{ slot_product_bindings : "slot_id"
+    products        ||--o{ slot_product_bindings : "product_id (status=active)"
+    machine_products }o--|| products             : "product_id"
+    machine_products }o--|| machines             : ""
+    slots           ||--o{ stock_movements       : "ประวัติ IN/OUT"
+```
+
+> สต็อกจริงต่อช่องอยู่ที่ `stocks.quantity` (คนละ table กับ `slots`). ช่อง (`slots`) **ไม่มี** `machine_id` — **filter ตามเครื่องต้อง join ขึ้นไปผ่าน `containers`** (`machines → containers → trays → slots → stocks`). เกณฑ์ต่ำสุดแขวนที่ `machine_products`, ประวัติ IN/OUT ที่ `stock_movements`
+>
+> ⚠️ **สินค้าผูกกับช่องผ่าน `slot_product_bindings` (status='active') — ไม่ใช่ `slots.product_id`**. `slots.product_id` ยังถูกเขียนอยู่ก็จริง แต่ **ไม่ใช่ source of truth** และ drift จาก binding ได้ (วัดจาก prod จริง: ~27% ของ slot ที่มี active binding มี `product_id` ไม่ตรง หรือเป็น NULL → join ผ่าน `product_id` จะ **mis-attribute สินค้าผิด หรือ drop slot ที่ product_id=NULL**). read path จริงของแอป join ผ่าน binding เสมอ
 
 | ตาราง/ฟิลด์ | เก็บอะไร |
 |---|---|
-| `slot_products.stock` | **สต็อกจริงต่อช่อง** (ความจริงทางกายภาพ) |
-| `slot_products.slotIdParent` | ช่องลูกชี้ช่องแม่ (merged slots); standalone = `null` |
-| `products.minimum_stock` | เกณฑ์ต่ำสุดต่อสินค้า (ใช้เตือน/ไฮไลต์ refill) |
-| `machine_products.minStockThreshold` | override เกณฑ์ต่ำสุดเฉพาะเครื่อง (ถ้า >0 ใช้ตัวนี้ก่อน) |
-| `transactions.amount` | การเคลื่อนไหว — **ติดลบ = ตัดออก**, บวก = เพิ่ม |
-| `slot_products.picked_quantity` | จำนวนที่เบิกไปแล้วของ issue slip |
+| `stocks.quantity` | **สต็อกจริงต่อช่อง** (ความจริงทางกายภาพ) — 1 แถวต่อ slot (`stocks.slot_id` unique, สร้าง lazy อาจยังไม่มีแถว) |
+| `slot_product_bindings` (status='active') | **สินค้าที่ผูกกับช่องจริง** — read path ใช้ตัวนี้ (`slot_id` + `product_id`) |
+| `slots.product_id` | denormalized — **ไม่ใช่ read path** อาจ drift จาก binding (วัด prod ~27% ไม่ตรง/NULL); ผูกสินค้าจริงใช้ `slot_product_bindings` |
+| `slots.low_stock_threshold` | เกณฑ์ต่ำสุดระดับช่อง |
+| `slots.current_stock` | legacy/denormalized — **read path ใช้ `stocks.quantity` ไม่ใช่ตัวนี้** |
+| `slots.merge_role` + `slots.merged_with_slot_ids` | ช่องรวม (merged slots) — role ของช่อง + รายชื่อ slot id ในกลุ่ม (JSON) |
+| `machine_products.min_stock_threshold` | เกณฑ์ต่ำสุดเฉพาะเครื่อง+สินค้า (ถ้า >0 ใช้ตัวนี้ก่อน) |
+| `stock_movements` | ประวัติการเคลื่อนไหว — `previous_quantity` / `new_quantity` / `quantity` + `machine_id` (denormalize) |
+| `issue_slip_pickups.quantity` | จำนวนที่เบิกไปแล้วของ issue slip |
 
 ### 5.2 หลักการสำคัญ — สต็อกจริง = ผลรวมต่อช่อง
 
-> **สต็อกจริงของสินค้าหนึ่ง = `SUM(slot_products.stock)` ของทุกช่องที่มีสินค้านั้น** (group by `product_id`)
+> **สต็อกจริงของสินค้าหนึ่ง = `SUM(stocks.quantity)` ของทุกช่องที่มีสินค้านั้น** (จับคู่ช่อง↔สินค้าผ่าน `slot_product_bindings` status='active', group by `product_id`)
 
-อย่าใช้ `remainingQuantity` จาก API (นั่นคือ "เหลือของใบเบิก" ไม่ใช่สต็อกกายภาพ) — ฝั่งตู้ `PickupDetailViewModel.stockMap` ใช้ `slotProductDao.getAllProductStocks()` ที่ SUM มาแล้ว
+ฝั่งตู้ใช้หลักเดียวกัน: `PickupDetailViewModel.stockMap` เรียก `slotProductDao.getAllProductStocks()` (SUM มาแล้ว) — **อย่าใช้** `remainingQuantity` จาก API (นั่นคือ "เหลือของใบเบิก" ไม่ใช่สต็อกกายภาพ)
 
 ### 5.3 Merged Slots (ช่องรวม)
 
-หลายช่องที่ผูกเป็นกลุ่มเดียว (`slotIdParent` เดียวกัน) นับเป็น 1 แถวสินค้า:
-- **stock ที่โชว์** = ผลรวมของทุกช่องในกลุ่ม
-- ตอน **refill** อัปเดตเฉพาะ **ช่องแม่** — ต้อง query stock จริงของช่องแม่จาก DB (ไม่ใช่ค่าผลรวมที่โชว์):
-  `stockDiff = refillAmount − actualParentStock`
+หลายช่องผูกเป็นกลุ่มเดียว นับเป็น 1 แถวสินค้า:
+- เซิร์ฟเวอร์: ความเป็นกลุ่มอยู่ที่ `slots.merge_role` + `slots.merged_with_slot_ids` (JSON) — ฝั่งตู้ Room ใช้ `slot_products.slotIdParent`
+- **stock ที่โชว์** = ผลรวม `stocks.quantity` ของทุกช่องในกลุ่ม
+- ตอน **refill** อัปเดตเฉพาะ **ช่องแม่** — ฝั่งตู้ต้อง query stock จริงของช่องแม่จาก DB (ไม่ใช่ค่าผลรวมที่โชว์): `stockDiff = refillAmount − actualParentStock`
 
-### 5.4 การเบิก (Pickup) — ทำไม amount ติดลบ
+### 5.4 การเบิก (Pickup) — การเคลื่อนไหว stock
 
-- ตอนบันทึก transaction เบิก: `amount = −product.amount` (ลบ เพื่อตัดสต็อก)
-- ต้อง set `requestAmount` (บวก) + `toolLife`, `reasonId`, `kanbanId/Name` ด้วย เพื่อให้ประวัติ pickup โชว์ถูก
-- **เวลาแสดงผลให้ใช้ `abs(amount)`** ห้ามโชว์ค่าติดลบดิบ ๆ
-- หลัง sync ระวัง `picked_quantity` ถูกทับ → snapshot ค่า local ก่อน sync แล้วใช้ `maxOf(local, remote)`
+- **เซิร์ฟเวอร์:** เบิก = ลด `stocks.quantity` + เขียน 1 แถวใน `stock_movements` (`previous_quantity` → `new_quantity`)
+- **ฝั่งตู้ (Room):** บันทึก `transactions.amount = −product.amount` (ลบ = ตัดสต็อก); **เวลาแสดงผลใช้ `abs(amount)`** ห้ามโชว์ค่าติดลบดิบ ๆ
+- ฝั่งตู้ต้อง set `requestAmount` (บวก) + `toolLife`, `reasonId`, `kanbanId/Name` ด้วย เพื่อให้ประวัติ pickup โชว์ถูก
+- หลัง sync ระวัง `picked_quantity` (Room) ถูกทับ → snapshot ค่า local ก่อน sync แล้วใช้ `maxOf(local, remote)`
 
 ### 5.5 Warehouse (คลังสินค้า) — ปัจจุบันเป็นแค่ยอดรวม
 
@@ -835,23 +861,40 @@ sequenceDiagram
 
 requirement ใหม่ (Phase ถัดไป สำหรับ Tool Room) จะแยกเป็น 3 ก้อนจริง: **Tool Room / Vending / Return** — แต่ ณ ตอนนี้ยังเป็นยอดรวมแบบเดิม
 
-### 5.6 ตรวจ Stock ด้วย SQL (debug)
+### 5.6 ตรวจ Stock ด้วย SQL (SQL Server — SSMS / DBeaver)
 
 ```sql
 -- สต็อกจริงต่อสินค้า (รวมทุกช่อง) ของเครื่องหนึ่ง
-SELECT p.id, p.name, SUM(sp.stock) AS physical_stock, p.minimum_stock
-FROM slot_products sp
-JOIN products p ON p.id = sp.product_id
-WHERE sp.machine_id = @machineId
-GROUP BY p.id, p.name, p.minimum_stock
+-- จับคู่ช่อง↔สินค้าผ่าน slot_product_bindings (active) — ไม่ใช่ slots.product_id
+SELECT p.id, p.name, SUM(COALESCE(s.quantity, 0)) AS physical_stock
+FROM containers c
+JOIN trays    t   ON t.container_id = c.id
+JOIN slots    sl  ON sl.tray_id     = t.id
+JOIN slot_product_bindings spb ON spb.slot_id = sl.id AND spb.status = 'active'
+JOIN products p   ON p.id           = spb.product_id
+LEFT JOIN stocks s ON s.slot_id     = sl.id
+WHERE c.machine_id = @machineId
+GROUP BY p.id, p.name
 ORDER BY physical_stock;
 
--- สินค้าต่ำกว่าเกณฑ์ (ควรเติม) — รวม merged slots
-SELECT p.id, p.name, SUM(sp.stock) AS stock, p.minimum_stock
-FROM slot_products sp JOIN products p ON p.id = sp.product_id
-WHERE sp.machine_id = @machineId
-GROUP BY p.id, p.name, p.minimum_stock
-HAVING SUM(sp.stock) < p.minimum_stock;
+-- สินค้าต่ำกว่าเกณฑ์ (ควรเติม) — เกณฑ์จาก machine_products (match read path: COALESCE>0, SUM>0)
+SELECT p.id, p.name, SUM(COALESCE(s.quantity, 0)) AS stock, mp.min_stock_threshold
+FROM containers c
+JOIN trays    t   ON t.container_id = c.id
+JOIN slots    sl  ON sl.tray_id     = t.id
+JOIN slot_product_bindings spb ON spb.slot_id = sl.id AND spb.status = 'active'
+JOIN products p   ON p.id           = spb.product_id
+LEFT JOIN stocks s ON s.slot_id     = sl.id
+LEFT JOIN machine_products mp ON mp.machine_id = c.machine_id AND mp.product_id = spb.product_id
+WHERE c.machine_id = @machineId AND COALESCE(mp.min_stock_threshold, 0) > 0
+GROUP BY p.id, p.name, mp.min_stock_threshold
+HAVING SUM(COALESCE(s.quantity, 0)) > 0 AND SUM(COALESCE(s.quantity, 0)) < mp.min_stock_threshold;
+
+-- ประวัติการเคลื่อนไหว (แทน transactions เดิม)
+SELECT created_at, slot_number, product_name, previous_quantity, new_quantity, quantity
+FROM stock_movements
+WHERE machine_id = @machineId
+ORDER BY created_at DESC;
 ```
 
 ---
@@ -1041,6 +1084,8 @@ scrcpy --video-bit-rate 2M --max-size 960 --max-fps 15 --no-audio
 | `pre-install-checklist.md` | Checklist เตรียมก่อนวัน 20 |
 | `training-plan.md` | อบรม *ผู้ใช้งาน* (พนักงาน/ช่าง/Admin) — คนละเล่ม |
 | `full-manual/` | คู่มือฟีเจอร์เต็มทุกหน้าจอ (อ้างอิงตอน debug พฤติกรรม) |
+| [`architecture-diagrams.md`](architecture-diagrams.md) | Diagram (Mermaid) — system / API routing+auth / deploy / blue-green / OTA / stock / offline bring-up |
+| [`dev-guidelines/`](dev-guidelines/) (01–06) | **เจาะลึกสำหรับ dev** (verify จาก source จริง): architecture + โครงสร้างโค้ด BE/FE/Kiosk, debug runbook, onboarding site ใหม่, release+OTA, รัน full stack local, stock model |
 | repo `vending-machine-kotlin` → `KIOSK_SETUP.md` | Setup ตู้ Android ครบทุก step |
 | repo `vending-machine-kotlin` → `REMOTE_TAILSCALE_SETUP.md` | Remote ตู้ผ่าน Tailscale + scrcpy เต็ม |
 | repo `vending-machine-kotlin` → `scripts/setup-device.sh` | สคริปต์ setup ตู้ (interactive) |
