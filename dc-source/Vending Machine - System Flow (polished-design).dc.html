@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vending Machine - System Flow</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-
   :root{
     --ink:#eef2f7; --dim:#94a1b3; --dim2:#aab6c6; --comment:#728396;
     --orange:#e98932; --orange-l:#f2a560; --orange-d:#a56124; --teal:#48bcb8; --teal-l:#67d2ce;
@@ -72,25 +73,10 @@
     border:1px solid rgba(255,255,255,0.08); border-radius:16px; box-shadow:0 14px 34px -18px rgba(0,0,0,0.6); }
   .specbar .sl{ font-family:'IBM Plex Mono',monospace; font-size:24px; letter-spacing:2px; color:#728396; }
   .specbar .sv{ font-family:'IBM Plex Mono',monospace; font-size:34px; color:#eef2f7; margin-top:8px; font-weight:500; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
 
-</style>
-<style>
-  /* standalone engine (replaces deck-stage): fixed 1920x1080 scaled to fit */
-  html,body{margin:0;height:100%;background:#070c14;overflow:hidden;font-family:'IBM Plex Sans Thai',sans-serif;}
-  #stage{position:absolute;top:50%;left:50%;width:1920px;height:1080px;transform-origin:center center;}
-  #stage>section{position:absolute;inset:0;display:none;}
-  #stage>section.active{display:block;}
-  #hud{position:fixed;bottom:14px;right:18px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#8a98ad;z-index:50;}
-  #hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6f7e92;opacity:.7;z-index:50;transition:opacity .4s;}
-  #hint.off{opacity:0;}
-  #bar{position:fixed;top:0;left:0;height:3px;background:#e98932;z-index:50;transition:width .3s;}
-  #notes{position:fixed;left:0;right:0;bottom:0;max-height:32vh;overflow:auto;background:rgba(8,11,16,.95);border-top:1px solid rgba(255,255,255,.12);color:#e8edf4;padding:18px 26px;font-size:18px;line-height:1.5;display:none;z-index:60;}
-  #notes.on{display:block;}
-  #notes b{display:block;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:2px;color:#ef9a4d;margin-bottom:8px;}
-</style>
-</head>
-<body>
-<div id="stage">
 <section data-label="Title" data-speaker-notes="เปิดด้วยภาพรวม: นี่คือแพลตฟอร์มตู้ขายสินค้าอัตโนมัติ 5 repository ทำงานร่วมกันผ่าน API กลาง วันนี้จะเล่า 3 เรื่อง สถาปัตยกรรม การส่งมอบสู่ production และกลยุทธ์ทำฟีเจอร์เฉพาะลูกค้า">
   <div class="slide">
     <div class="cn"></div>
@@ -107,6 +93,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Components" data-speaker-notes="ระบบมี 5 repository และเมื่อรันจริงจะมี 5 service หลัก แต่ละ repo คือขอบเขตงานชัดเจน api คือสมองกลาง web คือหน้าหลังบ้าน kiosk คือแอปบนตู้ infra เก็บ manifest และ shared เก็บ contract ที่ใช้ร่วมกัน">
   <div class="slide">
     <div class="cn"></div>
@@ -139,6 +126,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Tech Stack" data-speaker-notes="เทคสแตกแยกตามชั้น ฝั่ง api เป็น NestJS TypeScript ฝั่ง web ใช้ React ครบชุดสมัยใหม่ ฝั่ง kiosk เป็น Kotlin native และชั้น infra ดูแลการส่งมอบ ไม่ต้องอ่านทุกบรรทัด แค่เห็นว่าแต่ละชั้นเลือกเครื่องมือที่เป็นมาตรฐานของสายงานนั้น">
   <div class="slide">
     <div class="cn"></div>
@@ -174,6 +162,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="System Architecture" data-speaker-notes="หัวใจของทั้งระบบคือ ทุกอย่างผ่าน API เว็บคุยกับ api ผ่านเส้นทาง portal ตู้คุยผ่านเส้นทาง machine ทั้ง REST และ Socket.IO ส่วนตู้ต่อกับฮาร์ดแวร์จ่ายสินค้าผ่าน Serial ไม่มีใครต่อฐานข้อมูลตรง ทุกการอ่านเขียนวิ่งผ่าน api ชั้นเดียว">
   <div class="slide">
     <div class="cn"></div>
@@ -231,6 +220,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="API Routing & Auth" data-speaker-notes="api แบ่งเส้นทางเป็นสองกลุ่มชัดเจน กลุ่ม portal สำหรับเว็บใช้ JWT ของผู้ใช้ กลุ่ม machine สำหรับตู้ใช้ machine token แยกกัน guard คนละตัว ทำให้สิทธิ์ของคนกับของเครื่องไม่ปนกัน">
   <div class="slide">
     <div class="cn"></div>
@@ -267,6 +257,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="DDD + Hexagonal" data-speaker-notes="ภายใน api จัดด้วย DDD บวก Clean หรือ Hexagonal เป็นวงกลมสี่ชั้นซ้อนกัน domain อยู่ใจกลางไม่รู้จักโลกภายนอก application ครอบด้วย use case ถัดมา infrastructure ต่อฐานข้อมูลและบริการนอก นอกสุดคือ presentation คือ controller ทุกชั้นพึ่งพาเข้าด้านในเท่านั้น ฉีด dependency ผ่าน Symbol token รวมทั้งหมด 26 module">
   <div class="slide">
     <div class="cn"></div>
@@ -304,6 +295,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Web Architecture" data-speaker-notes="ฝั่งเว็บไหลเป็นชั้น เริ่มจาก route ด้วย TanStack Router ลงไป component ที่ใช้ Radix shadcn กับฟอร์ม RHF Zod แล้วต่อ hooks และ state โดยแยกชัด server state ใช้ TanStack Query client state ใช้ Jotai สุดท้ายลง apiClient ที่เป็น axios ยิงไป portal และ socket.io ทั้งระบบรองรับหลายภาษาด้วย i18next">
   <div class="slide">
     <div class="cn"></div>
@@ -335,6 +327,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Kiosk Architecture" data-speaker-notes="ฝั่งตู้เป็น Kotlin จัดด้วย Clean Architecture UI เป็น Compose รับ state ผ่าน StateFlow จาก ViewModel ลงไป Repository ที่คุยกับ Room สำหรับ offline 22 entity และ Retrofit ไป machine บวก Socket.IO และ Serial ผ่าน USB JNI สำหรับสั่งจ่ายสินค้า ใช้ Hilt ฉีด dependency จุดสำคัญคือ offline-first มี PendingOperation queue ค้างไว้แล้วค่อย sync และตู้ไม่ต่อฐานข้อมูลตรง">
   <div class="slide">
     <div class="cn"></div>
@@ -372,6 +365,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Code to Production" data-speaker-notes="จากโค้ดสู่การใช้งานจริงมีสองเส้นทางคนละแบบ ฝั่ง web และ api เดินผ่าน GitOps คือ build เป็น image แล้วอัปเดต manifest ปล่อยขึ้น server ส่วนฝั่งตู้เป็น Android เดินผ่าน OTA คือปล่อยอัปเดตไปลงเครื่องที่กระจายอยู่ตามหน้างาน สองเส้นนี้แยกกันเพราะธรรมชาติของปลายทางต่างกัน">
   <div class="slide">
     <div class="cn"></div>
@@ -409,6 +403,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="GitOps Pipeline" data-speaker-notes="เจาะ pipeline ฝั่ง server ทุก push เข้า CI build แล้วต้องผ่านด่านสแกนช่องโหว่ Trivy สองด่าน ด่านแรกสแกน filesystem และ dependency ด่านสองสแกน image ที่ build เสร็จ ถ้าเจอช่องโหว่ระดับสูงจะ fail ทันที ผ่านแล้วระบบ auto-commit tag ใหม่เข้า manifest ใน repo infra เป็นจุดเดียวที่บอกว่า production ควรรันเวอร์ชันไหน">
   <div class="slide">
     <div class="cn"></div>
@@ -450,6 +445,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Blue-Green Deploy" data-speaker-notes="ตอนปล่อยขึ้น server ใช้ blue-green เพื่อไม่ให้ระบบล่ม เวอร์ชันเดิมคือ blue ยังรับ traffic อยู่ ระบบยกเวอร์ชันใหม่ green ขึ้นมาข้างๆ ตรวจ health ให้ผ่านก่อน แล้วค่อยสลับ traffic มาที่ green ถ้าใหม่มีปัญหาก็สลับกลับ blue ได้ทันที ผู้ใช้ไม่รู้สึกว่ามี downtime">
   <div class="slide">
     <div class="cn"></div>
@@ -482,6 +478,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Setup & White-Label" data-speaker-notes="ระบบรองรับการติดตั้งหลาย site หลาย server แบบ white-label ภาพลักษณ์แบรนด์ โลโก้ สี โดเมน ตั้งค่าผ่าน config และตัวแปรแวดล้อมต่อ site ตัว image แกนเดียวกันแต่ส่วนที่ต่างคือ configuration ทำให้เพิ่มลูกค้าใหม่ได้โดยไม่ต้องแยกโค้ด">
   <div class="slide">
     <div class="cn"></div>
@@ -536,6 +533,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Android OTA" data-speaker-notes="ฝั่งตู้อัปเดตด้วย OTA เพราะเครื่องกระจายอยู่ตามหน้างานเข้าไปแตะทีละเครื่องไม่ไหว ตู้จะ poll release channel ตามรอบ เจอเวอร์ชันใหม่ก็ดาวน์โหลดตอนว่าง ตรวจลายเซ็นแล้วติดตั้ง ถ้า boot ใหม่มีปัญหาจะ rollback กลับเวอร์ชันเดิมอัตโนมัติ ระหว่างนี้การขายยังทำงานได้เพราะ offline-first">
   <div class="slide">
     <div class="cn"></div>
@@ -555,6 +553,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Stock & Pickup" data-speaker-notes="โฟลว์ขายจริง ลูกค้าเลือกสินค้า ตู้ตัด stock ใน Room ก่อนแล้วสั่ง dispense ผ่าน Serial เมื่อจ่ายสำเร็จออกรหัสรับของหรือยืนยันการหยิบ แล้ว enqueue รายการขายขึ้น sync ไป api ฝั่งหลังบ้านเห็นสต๊อกและยอดขายแบบใกล้เรียลไทม์ผ่าน Socket.IO จุดสำคัญคือตัด stock ที่เครื่องก่อนเพื่อกันขายเกิน">
   <div class="slide">
     <div class="cn"></div>
@@ -597,6 +596,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Customer Offline" data-speaker-notes="ขยายเรื่อง offline ของลูกค้า เมื่อตู้เน็ตหลุดทุกอย่างยังเดินได้เพราะอ่านเขียนลง Room ที่เครื่อง การกระทำที่ต้องส่งขึ้น server ถูกพักไว้ใน PendingOperation queue เรียงตามเวลา เมื่อเน็ตกลับมา repository จะ flush queue ขึ้น machine ทีละรายการ จัดการ conflict และ retry ที่ล้มเหลว ผลคือลูกค้าไม่รู้สึกว่าระบบล่ม">
   <div class="slide">
     <div class="cn"></div>
@@ -628,6 +628,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Offline Deploy — Overview" data-speaker-notes="ทีนี้พูดถึงการ deploy หรืออัปเดตในไซต์ที่อินเทอร์เน็ตเข้าไม่ถึง มีสองทางหลัก ทาง A คือเปิดเน็ตชั่วคราวให้ดึง image ตามปกติ ง่ายและแนะนำถ้านโยบายอนุญาต ทาง D คือ air-gap จริงๆ ผ่าน USB ดูรายละเอียดสไลด์ถัดไป ทั้งสองทางเริ่มจากสคริปต์ตัวเดียวกันชื่อ 0-START-HERE U ที่เป็นเมนูนำทาง">
   <div class="slide">
     <div class="cn"></div>
@@ -656,6 +657,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Offline D · USB Air-gap" data-speaker-notes="ทาง D คือ air-gap จริงด้วย USB จากเครื่องที่มีเน็ต docker pull image แล้ว docker save เป็นไฟล์ tar ไว้ที่โฟลเดอร์ C transfer ก๊อปลง USB แล้วถือไปที่ server ปลายทาง docker load เข้าไป ไม่ต้องต่อเน็ตเลย ในทางปฏิบัติไม่ต้องจำคำสั่ง รัน 0-START-HERE ตัว U แล้วเลือก เก้า เพื่อ save และ สอง เพื่อ load">
   <div class="slide">
     <div class="cn"></div>
@@ -694,6 +696,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="Feature Strategy — Overview" data-speaker-notes="เข้าสู่ครึ่งหลัง กลยุทธ์ทำฟีเจอร์เฉพาะลูกค้า มีสามวิธี A คือ feature flag เปิดปิดด้วยคอนฟิก เป็นค่าเริ่มต้น B คือแยก module แล้วเลือกตอน build เหมาะเมื่อต้องกันโค้ดหรือ IP จริงๆ C คือแยก branch ต่อลูกค้า เป็นทางสุดท้ายเพราะมีหนี้ merge ทุกรอบ หลักคิดคือ flag มาก่อน branch ไว้ทีหลังสุด ไม่มีวิธีไหนชนะทุกบริบท เลือกตาม IP จำนวนฟีเจอร์ และการแยกขาด">
   <div class="slide">
     <div class="cn"></div>
@@ -727,6 +730,7 @@
     </div>
   </div>
 </section>
+
 <section data-label="A · Feature Flag" data-speaker-notes="เจาะวิธี A feature flag ในฝั่ง app เรา gate ที่จุดเดียวด้วยการเลือก import module ตามคอนฟิก เห็นในโค้ด imports array จะใส่ module เฉพาะเมื่อ flag เปิด มี route gate และ if ในโค้ดเสริม ฝั่ง config มี Features service อ่านค่าจาก env และไฟล์ env secrets ต่อ site จุดเด่นคือไม่มี merge tax เพราะทุกคนอยู่ image เดียว branch เดียว">
   <div class="slide">
     <div class="cn"></div>
@@ -767,6 +771,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="A2 · DI Strategy" data-speaker-notes="ขยายวิธี A เป็น A2 เมื่อฟีเจอร์ไม่ใช่แค่เปิดปิดแต่ต้องมีพฤติกรรมต่างกันต่อแบรนด์ ใช้ dependency injection นิยาม port เดียว มี implementation ต่อลูกค้า แล้ว bind ตามแบรนด์ผ่าน registry ส่วน consumer แค่ inject port ไม่รู้ว่าใครอยู่ข้างหลัง ใช้กฎ rule of three คือเริ่มทำ abstraction เมื่อมีลูกค้าที่สามจริงๆ ยังเป็น image เดียว">
   <div class="slide">
     <div class="cn"></div>
@@ -800,6 +805,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="B · Module + Build-arg" data-speaker-notes="วิธี B แยกฟีเจอร์เป็น module จริงแล้วเลือกตอน build ด้วย build-arg ทำให้ build ได้สอง variant variant มาตรฐานกับ variant เฉพาะลูกค้า จุดสำคัญคือกันโค้ดจริงหรือ IP ออกจาก image อื่น ใน Dockerfile ใช้ build-arg ลบ module ที่ไม่ใช่ของลูกค้านั้นออก แล้ว override ที่ application slash brand ให้ชี้ไป tag เฉพาะเช่น tag-denso ลูกค้าคนอื่นจะไม่ได้โค้ดส่วนนี้ติดไปเลย">
   <div class="slide">
     <div class="cn"></div>
@@ -840,6 +846,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="C · Customer Branch" data-speaker-notes="วิธี C แยก branch ต่อลูกค้าเป็นทางสุดท้าย ดูจาก gitgraph จะเห็นว่า fork จาก main หรือ develop ไปเป็น customer slash denso ทุกครั้งที่มี fix บน main ต้อง merge ลง branch ลูกค้าทุกราย นั่นคือหนี้ที่เพิ่มขึ้นเรื่อยๆ จาก branch เข้า CI สร้าง tag แล้ว deploy ต่อ site brand ยืดหยุ่นสุดแต่แพงสุดในระยะยาว">
   <div class="slide">
     <div class="cn"></div>
@@ -881,6 +888,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="กลยุทธ์ · ต้องแก้อะไร" data-speaker-notes="เทียบว่าแต่ละวิธีต้องแตะส่วนไหนของระบบบ้าง ช่องเขียวคือไม่ต้องแตะ A และ A2 แตะแค่ชั้น development คือเขียนโค้ดกับคอนฟิก ไม่ยุ่ง gitops nssm หรือ deployment ส่วน B และ C ต้องแตะทั้ง gitops และ ci เพราะมี variant หรือ branch เพิ่ม ยิ่งวิธีหนักเท่าไรยิ่งกระทบหลายชั้น">
   <div class="slide">
     <div class="cn"></div>
@@ -935,6 +943,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="กลยุทธ์ · เทียบหลายมิติ" data-speaker-notes="เทียบทั้งสามวิธีในแปดมิติ หนี้ทางเทคนิค การกัน IP การแยกขาด จังหวะปล่อย จำนวน image โครงสร้างพื้นฐาน เวลาที่ใช้ และเหมาะเมื่อไร จะเห็นว่าไม่มีวิธีไหนชนะทุกมิติ A ถูกและเร็วแต่กัน IP ไม่ได้ C กัน IP และแยกขาดดีแต่แพงและช้า เลือกตามสิ่งที่ลูกค้ารายนั้นต้องการจริง">
   <div class="slide">
     <div class="cn"></div>
@@ -967,6 +976,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="กลยุทธ์ · จำลอง 5 ลูกค้า" data-speaker-notes="จำลองภาพรวมห้าลูกค้าพร้อมกัน จะเห็นว่าแม้มีห้าลูกค้าแต่ branch มีแค่อันเดียวคือ bigcorp ที่ต้องแยกจริง จาก main สร้างได้สอง image คือ tag ปกติกับ tag kfc สำหรับ module ส่วน branch bigcorp สร้าง tag bigcorp รวมเป็นสาม image แล้วกระจายไปห้าลูกค้า acme เป็น baseline denso ใช้ flag toyota ใช้ DI สามรายนี้แชร์ image เดียวกัน kfc ใช้ module bigcorp ใช้ branch จุดเด่นคือ fix แบบ manual มีแค่ bigcorp รายเดียว ที่เหลือได้ฟรีจาก main">
   <div class="slide">
     <div class="cn"></div>
@@ -1071,6 +1081,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="กลยุทธ์ · CI workflow" data-speaker-notes="วิธี B และ C ต้องปรับ CI workflow ดูจาก yaml on push ฟังเฉพาะ branch main และ customer slash ทั้งหมด ใช้ strategy matrix กำหนด variant แต่ละตัวพร้อม build-arg แล้ว build ตาม matrix ปิดท้ายด้วยการ bump tag เข้า gitops repo ส่วนวิธี A และ A2 ไม่ต้องแตะ workflow นี้เลยเพราะเป็นแค่ค่า env">
   <div class="slide">
     <div class="cn"></div>
@@ -1105,6 +1116,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="กลยุทธ์ · จำได้ยังไง" data-speaker-notes="คำถามสุดท้ายของกลยุทธ์ ระบบจำได้ยังไงว่าลูกค้าไหนใช้วิธีไหน คำตอบคือไฟล์ manifest กลาง gitops slash customers dot yml แมพแบรนด์ไปวิธี เป็น source of truth ระบบมีร่องรอยใบ้อยู่บ้างเช่นชื่อ branch โฟลเดอร์ หรือ tag แต่ feature flag ซ่อนอยู่ในไฟล์ env secrets ต่อ site มองจากภายนอกไม่เห็น เพราะงั้นต้องมี manifest กลางไว้เป็นจุดอ้างอิงเดียว">
   <div class="slide">
     <div class="cn"></div>
@@ -1142,6 +1154,7 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
+
 <section data-label="Key Takeaways" data-speaker-notes="สรุปหกข้อที่อยากให้จำกลับไป หนึ่งทุกอย่างเดินผ่าน API เส้นเดียว สองภายใน API เป็น DDD บวก Hexagonal สามส่งมอบด้วย CI ที่มี Trivy gate สองด่าน สี่ deploy แบบ blue-green และรองรับ white-label หลาย site ห้าตู้ทำงาน offline-first และมีทาง offline deploy ผ่าน 0-START-HERE ตัว U หกฟีเจอร์เฉพาะลูกค้าใช้หลัก flag-first โดย branch เป็นทางสุดท้าย ขอบคุณครับ">
   <div class="slide">
     <div class="cn"></div>
@@ -1159,34 +1172,8 @@ FEAT_DENSO_REPORT=<span class="t-green">true</span></div>
     </div>
   </div>
 </section>
-</div>
-<div id="bar"></div>
-<div id="hud"></div>
-<div id="hint">← → / Space เลื่อน · F เต็มจอ · N speaker notes</div>
-<div id="notes"></div>
-<script>
 
-  const stage=document.getElementById('stage');
-  const secs=[...stage.querySelectorAll('section')];
-  const hud=document.getElementById('hud'),hint=document.getElementById('hint'),bar=document.getElementById('bar'),notes=document.getElementById('notes');
-  let cur=0,notesOn=false,ht;
-  function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform='translate(-50%,-50%) scale('+s+')';}
-  function renderNotes(){const t=secs[cur].getAttribute('data-speaker-notes')||'';notes.classList.toggle('on',notesOn&&!!t);if(notesOn&&t){notes.innerHTML='';const b=document.createElement('b');b.textContent='SPEAKER NOTES';const s=document.createElement('span');s.textContent=t;notes.append(b,s);}}
-  function show(i){cur=Math.max(0,Math.min(secs.length-1,i));secs.forEach((s,k)=>s.classList.toggle('active',k===cur));hud.textContent=(cur+1)+' / '+secs.length;bar.style.width=((cur+1)/secs.length*100)+'%';renderNotes();}
-  function fade(){clearTimeout(ht);hint.classList.remove('off');ht=setTimeout(()=>hint.classList.add('off'),3000);}
-  addEventListener('resize',fit);fit();show(0);fade();
-  addEventListener('keydown',e=>{
-    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(cur+1);fade();}
-    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(cur-1);fade();}
-    else if(e.key==='Home'){show(0);fade();}
-    else if(e.key==='End'){show(secs.length-1);fade();}
-    else if(e.key==='f'||e.key==='F'){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
-    else if(e.key==='n'||e.key==='N'){notesOn=!notesOn;renderNotes();}
-  });
-  let tY;addEventListener('touchstart',e=>tY=e.touches[0].clientY,{passive:true});
-  addEventListener('touchend',e=>{const dy=tY-e.changedTouches[0].clientY;if(Math.abs(dy)>50){show(cur+(dy>0?1:-1));fade();}});
-  addEventListener('wheel',e=>{if(Math.abs(e.deltaY)>30){show(cur+(e.deltaY>0?1:-1));fade();}},{passive:true});
-
-</script>
+</x-import>
+</x-dc>
 </body>
 </html>
