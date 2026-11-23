@@ -277,6 +277,30 @@ curl -H "Host: newco.<your-domain>" http://127.0.0.1/        # ผ่าน IIS 
 
 ---
 
+## 7. ลงใต้ sub-path ของ site เดิม (ยังไม่มี DNS ของ brand)
+
+เมื่อ IT ลูกค้ายังไม่เพิ่ม DNS ของ brand ใหม่ ให้เสิร์ฟ stack ที่
+`https://<host-เดิม>/<prefix>` แทนโดเมนของตัวเอง (Jotun: `jotun.zaikomachine.com/v2`,
+ทำครั้งแรก 23/11/2026 brand `jotun1`).
+
+1. **secrets:** ใน `.env.secrets` ตั้ง `BASE_PATH=/v2` และ `BASE_URL=https://<host>/v2`
+   (ทั้ง API และ web อ่าน prefix จากสองค่านี้) แล้ว redeploy (`fix-site.ps1 -Brand <brand> -Redeploy`).
+   stack อื่นที่ไม่ตั้ง `BASE_PATH` = root เหมือนเดิม. ต้องใช้ web image ที่รองรับ `BASE_PATH`
+   (ตั้งแต่ `0.0.3-5838848`).
+2. **IIS:** บน site เดิมที่ถือโดเมน เพิ่ม `/<prefix>` เป็น **application** แยก (app pool
+   **No Managed Code**) web.config มี `<clear />` + rewrite `(.*)` → `https://<brand>.<domain>/{R:1}`.
+   - rewrite **rule** เฉย ๆ บน site ASP.NET MVC (`runAllManagedModulesForAllRequests="true"`)
+     ไม่พอ: `UrlRoutingModule` แย่ง path ≤3 segment (`/v2/`, `/v2/login`, asset) ไปก่อน ARR → 404.
+     ต้องเป็น application แยกเพื่อข้าม managed pipeline ของ site แม่.
+   - target ต้องเป็น **https** (site ของ brand บังคับ redirect http→https จะเด้งไปโดเมนที่ยังไม่มี DNS).
+3. **ตรวจ:** `/v2/`, `/v2/login`, `/v2/api/v1/health` ต้อง 200 และหน้าเว็บมี `<base href="/v2/">`;
+   site เดิมที่ `/` ต้องตอบเหมือนเดิม.
+
+> พอ DNS ของ brand มาแล้ว: คืน `BASE_URL` เป็นโดเมน brand, ลบ `BASE_PATH`, redeploy,
+> ตั้ง endpoint ตู้ใหม่, ลบ application `/<prefix>` ออกจาก site เดิม.
+
+---
+
 ## เอกสารอ้างอิง
 
 - แผนอบรม internal — Session "Deploy/OTA + เพิ่มลูกค้า/เครื่องใหม่" (ดูในชุดเอกสาร internal)
